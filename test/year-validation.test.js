@@ -50,9 +50,6 @@ test("ritual route allows the current year for a valid place query", () => {
     }),
   });
 
-  assert.equal(response.status, 200);
-  assert.equal(response.headers["content-type"], "text/html; charset=utf-8");
-  assert.match(response.body, /Preparing your s(?:&eacute;|é)ance/);
-  assert.match(response.body, /Hyderabad/);
-  assert.match(response.body, new RegExp(currentYear));
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.location, `/artifact?place=Hyderabad&year=${currentYear}`);
 });

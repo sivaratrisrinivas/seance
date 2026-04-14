@@ -31,13 +31,14 @@ export function handleRequest({
       };
     }
 
+    const artifactUrl = `/artifact?place=${encodeURIComponent(validation.place)}&year=${encodeURIComponent(validation.year)}`;
     return {
-      status: 200,
-      headers: { "content-type": "text/html; charset=utf-8" },
-      body: renderRitualLoading({
-        place: validation.place,
-        year: validation.year,
-      }),
+      status: 302,
+      headers: {
+        "content-type": "text/plain; charset=utf-8",
+        location: artifactUrl,
+      },
+      body: `Redirecting to ${artifactUrl}`,
     };
   }
 
