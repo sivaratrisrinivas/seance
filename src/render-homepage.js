@@ -1,6 +1,17 @@
 import { sharedStyles } from "./shared-styles.js";
 
+const EXAMPLES = [
+  { place: "Old City, Hyderabad", year: "1987" },
+  { place: "Riverside, California", year: "1962" },
+  { place: "Kyoto, Japan", year: "1912" },
+];
+
 export function renderHomepage() {
+  const examplesHtml = EXAMPLES.map(
+    ({ place, year }) =>
+      `<li><a href="/ritual?place=${encodeURIComponent(place)}&year=${encodeURIComponent(year)}">${escapeHtml(place)} &middot; ${escapeHtml(year)}</a></li>`
+  ).join("\n            ");
+
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -32,7 +43,8 @@ ${sharedStyles()}
         list-style: none;
       }
 
-      .example-list li {
+      .example-list li a {
+        display: block;
         padding: 10px 14px;
         border: 1px solid rgba(74, 56, 38, 0.12);
         border-radius: 999px;
@@ -40,6 +52,13 @@ ${sharedStyles()}
         color: var(--muted);
         font-size: 0.92rem;
         line-height: 1.3;
+        text-decoration: none;
+      }
+
+      .example-list li a:hover,
+      .example-list li a:focus {
+        background: rgba(255, 253, 249, 0.92);
+        border-color: var(--accent);
       }
 
     </style>
@@ -63,13 +82,20 @@ ${sharedStyles()}
         <aside class="example-queries" aria-label="Example queries">
           <p class="example-kicker">Example queries</p>
           <ul class="example-list">
-            <li>Old City, Hyderabad &middot; 1987</li>
-            <li>Riverside, California &middot; 1962</li>
-            <li>Kyoto, Japan &middot; 1912</li>
+            ${examplesHtml}
           </ul>
         </aside>
       </section>
     </main>
   </body>
 </html>`;
+}
+
+function escapeHtml(value) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }

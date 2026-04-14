@@ -42,3 +42,11 @@ test("homepage shows subtle example queries after the primary form", () => {
   assert.match(body, /Riverside, California\s*&middot;\s*1962/);
   assert.equal(body.indexOf("</form>") < body.indexOf("Example queries"), true);
 });
+
+test("example entries are clickable and start the ritual flow", () => {
+  const body = renderHomepage();
+
+  assert.match(body, /href="\/ritual\?place=Old%20City%2C%20Hyderabad&year=1987"/);
+  assert.match(body, /href="\/ritual\?place=Riverside%2C%20California&year=1962"/);
+  assert.match(body, /href="\/ritual\?place=Kyoto%2C%20Japan&year=1912"/);
+});
