@@ -56,3 +56,18 @@ test("artifact route shows mock result page with playback placeholder", () => {
   assert.doesNotMatch(response.body, /scrub/i);
   assert.doesNotMatch(response.body, /download/i);
 });
+
+test("artifact route supports direct navigation without homepage", () => {
+  const response = handleRequest({
+    method: "GET",
+    pathname: "/artifact",
+    searchParams: new URLSearchParams({
+      place: "Old City, Hyderabad",
+      year: "1987",
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /Your seance/);
+  assert.match(response.body, /Old City, Hyderabad.*1987/);
+});
