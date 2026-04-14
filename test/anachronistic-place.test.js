@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { handleRequest } from "../server.js";
 
-test("ritual route handles historical place name variants and redirects to artifact", async () => {
+test("ritual route handles historical place name variants via generating", async () => {
   const response = handleRequest({
     method: "GET",
     pathname: "/ritual",
@@ -14,7 +14,7 @@ test("ritual route handles historical place name variants and redirects to artif
   });
 
   assert.equal(response.status, 302);
-  assert.match(response.headers.location, /\/artifact\?id=/);
+  assert.match(response.headers.location, /\/generating\?/);
 });
 
 test("artifact page shows historical place metadata for reinterpreted queries", () => {

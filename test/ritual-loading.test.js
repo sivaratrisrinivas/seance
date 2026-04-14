@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { handleRequest } from "../server.js";
 
-test("ritual route redirects to artifact after valid query", () => {
+test("ritual route redirects to generating then artifact", () => {
   const response = handleRequest({
     method: "GET",
     pathname: "/ritual",
@@ -14,7 +14,7 @@ test("ritual route redirects to artifact after valid query", () => {
   });
 
   assert.equal(response.status, 302);
-  assert.match(response.headers.location, /\/artifact\?id=/);
+  assert.match(response.headers.location, /\/generating\?/);
 });
 
 test("artifact route shows mock result page with playback placeholder", () => {
@@ -144,7 +144,7 @@ test("artifact page includes native share option that falls back gracefully", ()
   assert.match(response.body, /Share/i);
 });
 
-test("ritual route redirects to artifact using opaque ID for stable routing", () => {
+test("ritual route generates opaque ID for stable routing", () => {
   const response = handleRequest({
     method: "GET",
     pathname: "/ritual",
@@ -155,7 +155,7 @@ test("ritual route redirects to artifact using opaque ID for stable routing", ()
   });
 
   assert.equal(response.status, 302);
-  assert.match(response.headers.location, /\/artifact\?id=/);
+  assert.match(response.headers.location, /id=/);
 });
 
 test("artifact route accepts opaque ID for stable identity", () => {
@@ -172,7 +172,7 @@ test("artifact route accepts opaque ID for stable identity", () => {
   assert.match(response.body, /Your seance/i);
 });
 
-test("ritual route redirects to artifact after successful run", () => {
+test("ritual route completes successfully with opaque ID", () => {
   const response = handleRequest({
     method: "GET",
     pathname: "/ritual",
@@ -183,7 +183,7 @@ test("ritual route redirects to artifact after successful run", () => {
   });
 
   assert.equal(response.status, 302);
-  assert.match(response.headers.location, /\/artifact\?id=/);
+  assert.match(response.headers.location, /\/generating\?id=/);
 });
 
 test("artifact displays resolved place metadata for unambiguous inputs", () => {

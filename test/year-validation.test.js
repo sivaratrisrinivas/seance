@@ -51,5 +51,5 @@ test("ritual route allows the current year for a valid place query", () => {
   });
 
   assert.equal(response.status, 302);
-  assert.match(response.headers.location, /\/artifact\?id=/);
+  assert.match(response.headers.location, /\/generating\?/);
 });

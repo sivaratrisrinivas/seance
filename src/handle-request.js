@@ -1,6 +1,7 @@
 import { renderHomepage } from "./render-homepage.js";
 import { validateRitualQuery } from "./query-validation.js";
 import { renderRitualLoading } from "./render-ritual-loading.js";
+import { renderGenerating } from "./render-generating.js";
 import { renderValidationError } from "./render-validation-error.js";
 import { renderArtifact } from "./render-artifact.js";
 import { renderDisambiguation } from "./render-disambiguation.js";
@@ -77,14 +78,34 @@ export function handleRequest({
       reinterpretNote = `&note=${encodeURIComponent(reinterpretation.note)}`;
     }
 
-    const artifactUrl = `/artifact?id=${generateOpaqueId(finalPlace, validation.year)}${reinterpretNote}`;
+    const opaqueId = generateOpaqueId(finalPlace, validation.year);
+    const generatingUrl = `/generating?id=${opaqueId}&place=${encodeURIComponent(validation.place)}&year=${encodeURIComponent(validation.year)}${reinterpretNote}`;
     return {
       status: 302,
       headers: {
         "content-type": "text/plain; charset=utf-8",
-        location: artifactUrl,
+        location: generatingUrl,
       },
-      body: `Redirecting to ${artifactUrl}`,
+      body: `Redirecting to ${generatingUrl}`,
+    };
+  }
+
+  if (method === "GET" && pathname === "/generating") {
+    const id = searchParams.get("id") ?? "";
+    const place = searchParams.get("place") ?? "";
+    const year = searchParams.get("year") ?? "";
+    const note = searchParams.get("note") ?? "";
+
+    const finalId = id || (place && year ? generateOpaqueId(place, year) : "");
+
+    const artifactUrl = finalId
+      ? `/artifact?id=${finalId}${note ? `&note=${encodeURIComponent(note)}` : ""}`
+      : `/artifact?place=${encodeURIComponent(place)}&year=${encodeURIComponent(year)}${note ? `&note=${encodeURIComponent(note)}` : ""}`;
+
+    return {
+      status: 200,
+      headers: { "content-type": "text/html; charset=utf-8" },
+      body: renderGenerating({ place, year, redirectTo: artifactUrl }),
     };
   }
 
@@ -110,26 +131,6 @@ export function handleRequest({
       status: 200,
       headers: { "content-type": "text/html; charset=utf-8" },
       body: renderArtifact({ place, year, archived, reinterpretation }),
-    };
-  }
-
-  if (method === "GET" && pathname === "/artifact") {
-    const id = searchParams.get("id");
-    let place = searchParams.get("place") ?? "";
-    let year = searchParams.get("year") ?? "";
-    const archived = searchParams.get("archived") === "true";
-
-    if (id && !place && !year) {
-      const decoded = atob(id);
-      const parts = decoded.split(":");
-      place = parts[0] || "";
-      year = parts[1] || "";
-    }
-
-    return {
-      status: 200,
-      headers: { "content-type": "text/html; charset=utf-8" },
-      body: renderArtifact({ place, year, archived }),
     };
   }
 
