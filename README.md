@@ -58,4 +58,13 @@ npm start  # Start server on port 8000
 - `src/evidence-extractor.js` - Historical evidence lookup
 - `src/reconstruction-metadata.js` - Structured metadata builder
 - `src/prompt-builder.js` - Prompt generation for AI
+- `src/query-validation.js` - Query input validation
 - `src/render-*.js` - Page templates
+
+## Safety
+
+The system implements narrow moderation to handle hard history responsibly:
+
+- **Input moderation**: Blocks generic conflict-zone place names (WarZone, UnknownConflict) during sensitive periods (1914-1945) when no evidence exists in the system
+- **Output moderation**: Prompts include safety constraints ("no graphic description, not violent or exploitative") for sensitive historical periods
+- Places with evidence (London 1940, Tokyo 1945, etc.) remain fully available

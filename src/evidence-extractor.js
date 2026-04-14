@@ -255,8 +255,26 @@ function isPlaceInRange(place, year) {
   return yearNum >= range.start && yearNum <= 2025;
 }
 
+const BLOCKED_ZONES = ["UnknownConflict", "WarZone", "Battlefield", "Frontline"];
+
+function isSensitivePeriod(year) {
+  const yearNum = parseInt(year, 10);
+  return yearNum >= 1914 && yearNum <= 1945;
+}
+
 export function extractEvidence({ place, year }) {
   const canonical = getCanonicalPlace(place);
+  const normalized = place.replace(/\s+/g, "").replace(/,/g, "");
+  
+  if (BLOCKED_ZONES.includes(normalized) && isSensitivePeriod(year)) {
+    return {
+      evidence: [],
+      confidence: "blocked",
+      note: `Queries for conflict zones in sensitive periods require known evidence.`,
+      blocked: true,
+    };
+  }
+  
   const placeEvidence = EVIDENCE_BY_PLACE[canonical] || [];
   
   if (!isPlaceInRange(canonical, year)) {

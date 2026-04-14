@@ -4,6 +4,7 @@ const NEGATIVE_CONSTRAINTS = {
   dramatic: "no dramatic or theatrical presentation",
   generic: "not generic or stock ambience",
   violence: "no graphic or violent sounds",
+  sensitive: "no graphic description, not violent or exploitative",
 };
 
 const PLACE_CONTEXT = {
@@ -62,6 +63,11 @@ function extractEvidenceByLayer(evidence) {
   return { bed, event, texture };
 }
 
+function isSensitivePeriod(year) {
+  const yearNum = parseInt(year, 10);
+  return yearNum >= 1914 && yearNum <= 1945;
+}
+
 function buildBedPrompt(metadata, context) {
   const { place, year, evidence } = metadata;
   const { bed } = extractEvidenceByLayer(evidence);
@@ -72,7 +78,11 @@ function buildBedPrompt(metadata, context) {
     prompt += `. Based on evidence: ${bed.map(e => e.description).join(", ")}`;
   }
 
-  prompt += `. ${NEGATIVE_CONSTRAINTS.modern}, ${NEGATIVE_CONSTRAINTS.film}, ${NEGATIVE_CONSTRAINTS.generic}`;
+  let constraints = [NEGATIVE_CONSTRAINTS.modern, NEGATIVE_CONSTRAINTS.film, NEGATIVE_CONSTRAINTS.generic];
+  if (isSensitivePeriod(year)) {
+    constraints.push(NEGATIVE_CONSTRAINTS.sensitive);
+  }
+  prompt += `. ${constraints.join(", ")}`;
 
   return prompt;
 }
@@ -89,7 +99,11 @@ function buildEventPrompt(metadata, context) {
     prompt += ". Subtle recurring sounds, not dramatic";
   }
 
-  prompt += `. ${NEGATIVE_CONSTRAINTS.modern}, ${NEGATIVE_CONSTRAINTS.dramatic}, ${NEGATIVE_CONSTRAINTS.film}`;
+  let constraints = [NEGATIVE_CONSTRAINTS.modern, NEGATIVE_CONSTRAINTS.dramatic, NEGATIVE_CONSTRAINTS.film];
+  if (isSensitivePeriod(year)) {
+    constraints.push(NEGATIVE_CONSTRAINTS.sensitive);
+  }
+  prompt += `. ${constraints.join(", ")}`;
 
   return prompt;
 }
@@ -108,7 +122,11 @@ function buildTexturePrompt(metadata, context, confidence) {
     prompt += ". Inferred from regional era characteristics, uncertain reconstruction";
   }
 
-  prompt += `. ${NEGATIVE_CONSTRAINTS.modern}, ${NEGATIVE_CONSTRAINTS.generic}`;
+  let constraints = [NEGATIVE_CONSTRAINTS.modern, NEGATIVE_CONSTRAINTS.generic];
+  if (isSensitivePeriod(year)) {
+    constraints.push(NEGATIVE_CONSTRAINTS.sensitive);
+  }
+  prompt += `. ${constraints.join(", ")}`;
 
   return prompt;
 }

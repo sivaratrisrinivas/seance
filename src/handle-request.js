@@ -76,6 +76,23 @@ export async function handleRequest({
       };
     }
 
+    const evidenceCheck = extractEvidence({
+      place: validation.place,
+      year: validation.year,
+    });
+    if (evidenceCheck.blocked) {
+      return {
+        status: 422,
+        headers: { "content-type": "text/html; charset=utf-8" },
+        body: renderValidationError({
+          ok: false,
+          place: validation.place,
+          year: validation.year,
+          message: evidenceCheck.note,
+        }),
+      };
+    }
+
     const placeKey = validation.place.split(",")[0].trim();
     if (AMBIGUOUS_PLACES[placeKey]) {
       const disambigUrl = `/disambiguate?place=${encodeURIComponent(placeKey)}&year=${encodeURIComponent(validation.year)}`;
