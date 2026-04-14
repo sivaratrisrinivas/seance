@@ -3,6 +3,14 @@ import { validateRitualQuery } from "./query-validation.js";
 import { renderRitualLoading } from "./render-ritual-loading.js";
 import { renderValidationError } from "./render-validation-error.js";
 import { renderArtifact } from "./render-artifact.js";
+import { renderDisambiguation } from "./render-disambiguation.js";
+
+const AMBIGUOUS_PLACES = {
+  Springfield: ["Springfield, Missouri", "Springfield, Illinois"],
+  Cambridge: ["Cambridge, UK", "Cambridge, Massachusetts"],
+  York: ["York, UK", "New York, USA"],
+  Beverly: ["Beverly Hills, California", "Beverly, Massachusetts"],
+};
 
 function generateOpaqueId(place, year) {
   return btoa(`${place}:${year}`).replace(/=/g, "");
@@ -21,6 +29,18 @@ export function handleRequest({
     };
   }
 
+  if (method === "GET" && pathname === "/disambiguate") {
+    const place = searchParams.get("place") ?? "";
+    const year = searchParams.get("year") ?? "";
+    const candidates = AMBIGUOUS_PLACES[place] ?? [];
+
+    return {
+      status: 200,
+      headers: { "content-type": "text/html; charset=utf-8" },
+      body: renderDisambiguation({ place, year, candidates }),
+    };
+  }
+
   if (method === "GET" && pathname === "/ritual") {
     const validation = validateRitualQuery({
       place: searchParams.get("place") ?? "",
@@ -32,6 +52,19 @@ export function handleRequest({
         status: 422,
         headers: { "content-type": "text/html; charset=utf-8" },
         body: renderValidationError(validation),
+      };
+    }
+
+    const placeKey = validation.place.split(",")[0].trim();
+    if (AMBIGUOUS_PLACES[placeKey]) {
+      const disambigUrl = `/disambiguate?place=${encodeURIComponent(placeKey)}&year=${encodeURIComponent(validation.year)}`;
+      return {
+        status: 302,
+        headers: {
+          "content-type": "text/plain; charset=utf-8",
+          location: disambigUrl,
+        },
+        body: `Redirecting to ${disambigUrl}`,
       };
     }
 

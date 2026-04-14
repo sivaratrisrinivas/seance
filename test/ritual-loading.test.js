@@ -199,3 +199,19 @@ test("artifact displays resolved place metadata for unambiguous inputs", () => {
   assert.equal(response.status, 200);
   assert.match(response.body, /Old City, Hyderabad.*1987/);
 });
+
+test("ambiguous place input triggers disambiguation step with candidates", () => {
+  const response = handleRequest({
+    method: "GET",
+    pathname: "/disambiguate",
+    searchParams: new URLSearchParams({
+      place: "Springfield",
+      year: "1987",
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /Which Springfield/i);
+  assert.match(response.body, /Missouri/i);
+  assert.match(response.body, /Illinois/i);
+});
