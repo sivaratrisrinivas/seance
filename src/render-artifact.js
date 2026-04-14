@@ -1,9 +1,15 @@
 import { escapeHtml } from "./html.js";
 import { sharedStyles } from "./shared-styles.js";
 
-export function renderArtifact({ place, year, archived = false }) {
+export function renderArtifact({ place, year, archived = false, confidence = "high" }) {
   const queryLabel = [place, year].filter(Boolean).join(", ");
   const headerText = archived ? "From your archive" : "Your seance";
+
+  const confidenceLabel = {
+    high: "High confidence",
+    medium: "Medium confidence",
+    low: "Low confidence",
+  }[confidence] ?? "Confidence: unknown";
 
   return `<!doctype html>
 <html lang="en">
@@ -26,6 +32,21 @@ ${sharedStyles()}
         margin: 0;
         font-size: clamp(1.8rem, 5vw, 2.8rem);
         color: var(--text);
+      }
+
+      .trust-line {
+        margin: 16px 0 0;
+        padding: 12px 16px;
+        border: 1px solid rgba(74, 56, 38, 0.1);
+        border-radius: 12px;
+        background: rgba(255, 253, 249, 0.5);
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      .trust-line strong {
+        color: var(--text);
+        font-weight: normal;
       }
 
       .playback {
@@ -102,6 +123,7 @@ ${sharedStyles()}
       <section class="shell" aria-labelledby="artifact-title">
         <p class="artifact-header">${escapeHtml(headerText)}</p>
         <h1 class="artifact-place" id="artifact-title">${escapeHtml(queryLabel)}</h1>
+        <p class="trust-line"><strong>Evidence grounded</strong> &middot; ${escapeHtml(confidenceLabel)}</p>
         <div class="playback" aria-label="Audio playback">
           <div class="playback-wave" aria-hidden="true">
             <span></span><span></span><span></span><span></span><span></span><span></span><span></span>

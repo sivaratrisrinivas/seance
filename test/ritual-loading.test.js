@@ -84,6 +84,22 @@ test("artifact page can display archive status for retrieved artifacts", () => {
   assert.doesNotMatch(response.body, /hit/i);
 });
 
+test("artifact page shows always-visible trust line with confidence", () => {
+  const response = handleRequest({
+    method: "GET",
+    pathname: "/artifact",
+    searchParams: new URLSearchParams({
+      place: "Hyderabad",
+      year: "1987",
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /Evidence grounded/i);
+  assert.match(response.body, /confidence/i);
+  assert.doesNotMatch(response.body, /spinner/i);
+});
+
 test("ritual route redirects to artifact after successful run", () => {
   const response = handleRequest({
     method: "GET",
