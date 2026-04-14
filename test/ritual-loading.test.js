@@ -185,3 +185,17 @@ test("ritual route redirects to artifact after successful run", () => {
   assert.equal(response.status, 302);
   assert.match(response.headers.location, /\/artifact\?id=/);
 });
+
+test("artifact displays resolved place metadata for unambiguous inputs", () => {
+  const response = handleRequest({
+    method: "GET",
+    pathname: "/artifact",
+    searchParams: new URLSearchParams({
+      place: "Old City, Hyderabad",
+      year: "1987",
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /Old City, Hyderabad.*1987/);
+});
