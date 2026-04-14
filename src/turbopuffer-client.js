@@ -27,18 +27,26 @@ async function turbopufferRequest(path, method = "POST", body = null) {
 export async function storeArtifact(artifact) {
   if (!TURBOPUFFER_API_KEY) {
     const id = `${artifact.place}:${artifact.year}`;
-    inMemoryStore.set(id, { ...artifact, storedAt: new Date().toISOString() });
-    return { id, mode: "memory" };
+    inMemoryStore.set(id, { ...artifact, storedAt: new Date().toISOString(), version: artifact.version || 1 });
+    return { id, mode: "memory", version: artifact.version || 1 };
   }
 
   const id = `${artifact.place}:${artifact.year}`;
+  const version = artifact.version || 1;
+  
+  const audioLayersRef = artifact.audioLayers ? {
+    hasAudio: true,
+    isMock: artifact.audioLayers.isMock || false,
+  } : null;
+  
   const doc = {
     id,
     place: artifact.place,
     year: String(artifact.year),
+    version,
     metadata: artifact.metadata ? JSON.stringify(artifact.metadata) : null,
     evidence: artifact.evidence ? JSON.stringify(artifact.evidence) : null,
-    audio_layers: artifact.audioLayers ? JSON.stringify(artifact.audioLayers) : null,
+    audio_layers_ref: audioLayersRef ? JSON.stringify(audioLayersRef) : null,
     prompts: artifact.prompts ? JSON.stringify(artifact.prompts) : null,
     confidence: artifact.confidence || artifact.confidenceScore ? parseFloat(artifact.confidenceScore || 0.85) : null,
     confidence_score: artifact.confidenceScore ? parseFloat(artifact.confidenceScore) : null,
@@ -51,7 +59,7 @@ export async function storeArtifact(artifact) {
     upsert_rows: [doc],
   });
 
-  return { id, mode: "turbopuffer" };
+  return { id, mode: "turbopuffer", version };
 }
 
 export async function getArtifact(place, year) {

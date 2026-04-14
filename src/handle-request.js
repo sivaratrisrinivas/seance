@@ -21,6 +21,10 @@ const AMBIGUOUS_PLACES = {
   Beverly: ["Beverly Hills, California", "Beverly, Massachusetts"],
 };
 
+function generateMockPrompts(text, layerType) {
+  return `mock_${layerType}_${Buffer.from(text).toString("base64").slice(0, 20)}`;
+}
+
 function generateOpaqueId(place, year) {
   return btoa(`${place}:${year}`).replace(/=/g, "");
 }
@@ -255,6 +259,134 @@ export async function handleRequest({
         sourceNotes: artifactData?.source_notes || null,
         audioLayers: artifactData?.audio_layers ? JSON.parse(artifactData.audio_layers) : null,
       }),
+    };
+  }
+
+  if (method === "GET" && pathname === "/debug/artifact") {
+    const id = searchParams.get("id");
+    let place = searchParams.get("place") ?? "";
+    let year = searchParams.get("year") ?? "";
+
+    if (id && !place && !year) {
+      const decoded = atob(id);
+      const parts = decoded.split(":");
+      place = parts[0] || "";
+      year = parts[1] || "";
+    }
+
+    let artifactData = null;
+    if (place && year && tpIsConfigured()) {
+      artifactData = await tpGetArtifact(place, year);
+    }
+
+    return {
+      status: 200,
+      headers: { "content-type": "application/json; charset=utf-8" },
+      body: JSON.stringify({
+        query: { place, year, id },
+        archived: !!artifactData,
+        artifact: artifactData ? {
+          place: artifactData.place,
+          year: artifactData.year,
+          version: artifactData.version || 1,
+          confidence: artifactData.confidence,
+          confidenceScore: artifactData.confidence_score,
+          evidence: artifactData.evidence ? JSON.parse(artifactData.evidence) : null,
+          evidenceNote: artifactData.evidence_note,
+          sourceNotes: artifactData.source_notes,
+          prompts: artifactData.prompts ? JSON.parse(artifactData.prompts) : null,
+          audioLayers: artifactData.audio_layers_ref ? JSON.parse(artifactData.audio_layers_ref) : null,
+          metadata: artifactData.metadata ? JSON.parse(artifactData.metadata) : null,
+          createdAt: artifactData.created_at,
+        } : null,
+      }, null, 2),
+    };
+  }
+
+  if (method === "POST" && pathname === "/debug/regenerate") {
+    const place = searchParams.get("place") ?? "";
+    const year = searchParams.get("year") ?? "";
+    const force = searchParams.get("force") === "true";
+
+    if (!place || !year) {
+      return {
+        status: 400,
+        headers: { "content-type": "application/json; charset=utf-8" },
+        body: JSON.stringify({ error: "place and year required" }),
+      };
+    }
+
+    const existing = await tpGetArtifact(place, year);
+    const newVersion = existing ? (existing.version || 1) + 1 : 1;
+
+    const placeKey = place.split(",")[0].trim();
+    const reconstructionMetadata = generateReconstructionMetadata({ place: placeKey, year: parseInt(year) });
+
+    const prompts = buildPrompts({
+      place: reconstructionMetadata.canonicalPlace,
+      year: reconstructionMetadata.year,
+      evidenceByLayer: reconstructionMetadata.evidenceByLayer,
+    });
+
+    let audioLayers;
+    const useMockMode = !elIsConfigured();
+    
+    if (useMockMode) {
+      audioLayers = {
+        bed: generateMockPrompts(prompts.bed, "bed"),
+        event: generateMockPrompts(prompts.event, "event"),
+        texture: generateMockPrompts(prompts.texture, "texture"),
+        isMock: true,
+      };
+    } else {
+      try {
+        audioLayers = await generateSoundscape({
+          place: reconstructionMetadata.canonicalPlace,
+          year: reconstructionMetadata.year,
+          evidenceByLayer: reconstructionMetadata.evidenceByLayer,
+        });
+        if (audioLayers.isMock) {
+          console.log("Using mock audio (ElevenLabs returned mock)");
+        }
+      } catch (e) {
+        console.warn("Audio generation failed, using fallback:", e.message);
+        audioLayers = { 
+          bed: "mock_fallback_bed", 
+          event: "mock_fallback_event", 
+          texture: "mock_fallback_texture", 
+          isMock: true 
+        };
+      }
+    }
+
+    const artifactData = {
+      place: reconstructionMetadata.canonicalPlace,
+      year: reconstructionMetadata.year,
+      version: newVersion,
+      metadata: reconstructionMetadata.reinterpretation,
+      evidence: reconstructionMetadata.evidenceByLayer.bed?.concat(
+        reconstructionMetadata.evidenceByLayer.event || [],
+        reconstructionMetadata.evidenceByLayer.texture || []
+      ) || [],
+      prompts,
+      audioLayers,
+      confidence: reconstructionMetadata.confidence,
+      confidenceScore: reconstructionMetadata.confidenceScore,
+      evidenceNote: reconstructionMetadata.evidenceNote,
+      sourceNotes: reconstructionMetadata.sourceNotes,
+    };
+
+    await tpStoreArtifact(artifactData);
+
+    return {
+      status: 200,
+      headers: { "content-type": "application/json; charset=utf-8" },
+      body: JSON.stringify({
+        action: "regenerated",
+        previousVersion: existing?.version || null,
+        newVersion,
+        mode: force ? "forced" : "incremental",
+      }, null, 2),
     };
   }
 
