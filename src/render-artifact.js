@@ -1,9 +1,12 @@
 import { escapeHtml } from "./html.js";
 import { sharedStyles } from "./shared-styles.js";
 
-export function renderArtifact({ place, year, archived = false, confidence = "high" }) {
+export function renderArtifact({ place, year, archived = false, confidence = "high", reinterpretation = null }) {
   const queryLabel = [place, year].filter(Boolean).join(", ");
   const headerText = archived ? "From your archive" : "Your seance";
+  const reinterpretNote = reinterpretation?.reinterpreted
+    ? `<p class="trust-line"><em>Reconstructed</em> &middot; ${escapeHtml(reinterpretation.note)}</p>`
+    : "";
 
   const confidenceLabel = {
     high: "High confidence",
@@ -200,6 +203,7 @@ ${sharedStyles()}
         <p class="artifact-header">${escapeHtml(headerText)}</p>
         <h1 class="artifact-place" id="artifact-title">${escapeHtml(queryLabel)}</h1>
         <p class="trust-line"><strong>Evidence grounded</strong> &middot; ${escapeHtml(confidenceLabel)}</p>
+        ${reinterpretNote}
         <details class="about-panel">
           <summary class="about-toggle">About this reconstruction</summary>
           <div class="about-content">

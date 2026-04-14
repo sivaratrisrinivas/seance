@@ -4,6 +4,7 @@ import { renderRitualLoading } from "./render-ritual-loading.js";
 import { renderValidationError } from "./render-validation-error.js";
 import { renderArtifact } from "./render-artifact.js";
 import { renderDisambiguation } from "./render-disambiguation.js";
+import { resolvePlaceForYear, needsReinterpretation } from "./place-reinterpretation.js";
 
 const AMBIGUOUS_PLACES = {
   Springfield: ["Springfield, Missouri", "Springfield, Illinois"],
@@ -68,8 +69,15 @@ export function handleRequest({
       };
     }
 
-    const opaqueId = generateOpaqueId(validation.place, validation.year);
-    const artifactUrl = `/artifact?id=${opaqueId}`;
+    const reinterpretation = resolvePlaceForYear(placeKey, validation.year);
+    let finalPlace = validation.place;
+    let reinterpretNote = "";
+    if (reinterpretation.reinterpreted) {
+      finalPlace = `${reinterpretation.modern} (formerly ${reinterpretation.original})`;
+      reinterpretNote = `&note=${encodeURIComponent(reinterpretation.note)}`;
+    }
+
+    const artifactUrl = `/artifact?id=${generateOpaqueId(finalPlace, validation.year)}${reinterpretNote}`;
     return {
       status: 302,
       headers: {
@@ -77,6 +85,31 @@ export function handleRequest({
         location: artifactUrl,
       },
       body: `Redirecting to ${artifactUrl}`,
+    };
+  }
+
+  if (method === "GET" && pathname === "/artifact") {
+    const id = searchParams.get("id");
+    let place = searchParams.get("place") ?? "";
+    let year = searchParams.get("year") ?? "";
+    const note = searchParams.get("note") ?? "";
+    const archived = searchParams.get("archived") === "true";
+
+    if (id && !place && !year) {
+      const decoded = atob(id);
+      const parts = decoded.split(":");
+      place = parts[0] || "";
+      year = parts[1] || "";
+    }
+
+    const reinterpretation = note
+      ? { reinterpreted: true, note: note }
+      : null;
+
+    return {
+      status: 200,
+      headers: { "content-type": "text/html; charset=utf-8" },
+      body: renderArtifact({ place, year, archived, reinterpretation }),
     };
   }
 
