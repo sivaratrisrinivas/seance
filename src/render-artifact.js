@@ -1,11 +1,15 @@
 import { escapeHtml } from "./html.js";
 import { sharedStyles } from "./shared-styles.js";
 
-export function renderArtifact({ place, year, archived = false, confidence = "high", confidenceScore = null, reinterpretation = null, generated = false, error = null, audioLayers = null, evidence = null, evidenceNote = null, sourceNotes = null }) {
+export function renderArtifact({ place, year, archived = false, confidence = "high", confidenceScore = null, reinterpretation = null, generated = false, error = null, audioLayers = null, evidence = null, evidenceNote = null, sourceNotes = null, partial = false }) {
   const queryLabel = [place, year].filter(Boolean).join(", ");
   const headerText = archived ? "From your archive" : generated ? "Freshly summoned" : "Your seance";
   const reinterpretNote = reinterpretation?.reinterpreted
     ? `<p class="trust-line"><em>Reconstructed</em> &middot; ${escapeHtml(reinterpretation.note)}</p>`
+    : "";
+  
+  const partialNote = partial && audioLayers?.isPartial
+    ? `<p class="trust-line"><em>Partial reconstruction</em> &middot; Some audio layers unavailable</p>`
     : "";
 
   const confidenceLabel = {
@@ -389,6 +393,7 @@ ${sharedStyles()}
         <p class="trust-line"><strong>Evidence grounded</strong> &middot; ${escapeHtml(confidenceLabel)}</p>
         ${evidenceBullet}
         ${reinterpretNote}
+        ${partialNote}
         <details class="about-panel">
           <summary class="about-toggle">About this reconstruction</summary>
           <div class="about-content">

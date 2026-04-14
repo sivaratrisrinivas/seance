@@ -68,3 +68,12 @@ The system implements narrow moderation to handle hard history responsibly:
 - **Input moderation**: Blocks generic conflict-zone place names (WarZone, UnknownConflict) during sensitive periods (1914-1945) when no evidence exists in the system
 - **Output moderation**: Prompts include safety constraints ("no graphic description, not violent or exploitative") for sensitive historical periods
 - Places with evidence (London 1940, Tokyo 1945, etc.) remain fully available
+
+## Degradation
+
+The system handles partial generation gracefully:
+
+- **Layer tracking**: Each audio layer (bed, event, texture) tracks individual success/failure
+- **Threshold**: At least 2 layers must succeed; fewer throws an error
+- **Partial artifacts**: When 2+ layers succeed but not all 3, artifact is marked partial
+- **Partial UI**: Shows "Partial reconstruction" note with layer availability

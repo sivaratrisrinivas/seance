@@ -259,6 +259,9 @@ export async function handleRequest({
       ? { reinterpreted: true, note: note }
       : null;
 
+    const audioLayers = artifactData?.audio_layers ? JSON.parse(artifactData.audio_layers) : null;
+    const partial = audioLayers?.isPartial === true;
+
     return {
       status: 200,
       headers: { "content-type": "text/html; charset=utf-8" },
@@ -274,7 +277,8 @@ export async function handleRequest({
         evidence: artifactData?.evidence ? JSON.parse(artifactData.evidence) : null,
         evidenceNote: artifactData?.evidence_note || null,
         sourceNotes: artifactData?.source_notes || null,
-        audioLayers: artifactData?.audio_layers ? JSON.parse(artifactData.audio_layers) : null,
+        audioLayers,
+        partial,
       }),
     };
   }

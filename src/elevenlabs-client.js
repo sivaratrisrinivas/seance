@@ -41,6 +41,8 @@ export async function generateAudioLayer({ text, layerType, durationSeconds = 10
   return response.arrayBuffer();
 }
 
+const LAYER_FAILURE_THRESHOLD = 2;
+
 export async function generateSoundscape({ place, year, evidence, evidenceByLayer = null }) {
   const evidenceList = evidenceByLayer
     ? [
@@ -54,34 +56,73 @@ export async function generateSoundscape({ place, year, evidence, evidenceByLaye
 
   const isRealApi = !!ELEVENLABS_API_KEY;
 
+  const layerStatus = {
+    bed: { success: false, error: null },
+    event: { success: false, error: null },
+    texture: { success: false, error: null },
+  };
+
   let bedResult, eventResult, textureResult;
 
   if (isRealApi) {
-    const [bedBuffer, eventBuffer, textureBuffer] = await Promise.all([
-      generateAudioLayer({
+    try {
+      const bedBuffer = await generateAudioLayer({
         text: prompts.bed,
         layerType: "bed",
         durationSeconds: 15,
-      }),
-      generateAudioLayer({
+      });
+      bedResult = Buffer.from(bedBuffer).toString("base64");
+      layerStatus.bed.success = true;
+    } catch (e) {
+      layerStatus.bed.error = e.message;
+      bedResult = null;
+    }
+
+    try {
+      const eventBuffer = await generateAudioLayer({
         text: prompts.event,
         layerType: "event",
         durationSeconds: 8,
-      }),
-      generateAudioLayer({
+      });
+      eventResult = Buffer.from(eventBuffer).toString("base64");
+      layerStatus.event.success = true;
+    } catch (e) {
+      layerStatus.event.error = e.message;
+      eventResult = null;
+    }
+
+    try {
+      const textureBuffer = await generateAudioLayer({
         text: prompts.texture,
         layerType: "texture",
         durationSeconds: 10,
-      }),
-    ]);
-
-    bedResult = Buffer.from(bedBuffer).toString("base64");
-    eventResult = Buffer.from(eventBuffer).toString("base64");
-    textureResult = Buffer.from(textureBuffer).toString("base64");
+      });
+      textureResult = Buffer.from(textureBuffer).toString("base64");
+      layerStatus.texture.success = true;
+    } catch (e) {
+      layerStatus.texture.error = e.message;
+      textureResult = null;
+    }
   } else {
     bedResult = generateMockAudioLayer(prompts.bed, "bed");
     eventResult = generateMockAudioLayer(prompts.event, "event");
     textureResult = generateMockAudioLayer(prompts.texture, "texture");
+    layerStatus.bed.success = true;
+    layerStatus.event.success = true;
+    layerStatus.texture.success = true;
+  }
+
+  const successCount = Object.values(layerStatus).filter(l => l.success).length;
+  const isPartial = successCount > 0 && successCount < 3;
+  
+  if (successCount < LAYER_FAILURE_THRESHOLD) {
+    throw new Error(
+      `Insufficient layers: only ${successCount}/${Object.keys(layerStatus).length} succeeded. ` +
+      `Failures: ${Object.entries(layerStatus)
+        .filter(([, s]) => !s.success)
+        .map(([k, v]) => `${k}: ${v.error}`)
+        .join(", ")}`
+    );
   }
 
   return {
@@ -89,6 +130,8 @@ export async function generateSoundscape({ place, year, evidence, evidenceByLaye
     event: eventResult,
     texture: textureResult,
     isMock: !isRealApi,
+    isPartial: isPartial || undefined,
+    layerStatus,
   };
 }
 
