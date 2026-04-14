@@ -221,6 +221,7 @@ ${sharedStyles()}
           <a class="btn" href="/artifact?place=${encodeURIComponent(place)}&year=${encodeURIComponent(year)}">Hear it again</a>
         </div>
         <div class="share-actions">
+          <button class="share-btn" type="button" onclick="if(navigator.share){navigator.share({title:'Seance: '+'${escapeHtml(queryLabel)}',url:window.location.href}).catch(()=>{})}else{alert('Sharing not supported in this browser')}">Share</button>
           <button class="share-btn" type="button" onclick="navigator.clipboard.writeText(window.location.href)">Copy link</button>
           <button class="share-btn" type="button">Save card</button>
         </div>

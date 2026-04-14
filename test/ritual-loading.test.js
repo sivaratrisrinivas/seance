@@ -130,6 +130,20 @@ test("artifact page includes copy link and save card share actions", () => {
   assert.match(response.body, /Save card/i);
 });
 
+test("artifact page includes native share option that falls back gracefully", () => {
+  const response = handleRequest({
+    method: "GET",
+    pathname: "/artifact",
+    searchParams: new URLSearchParams({
+      place: "Hyderabad",
+      year: "1987",
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /Share/i);
+});
+
 test("ritual route redirects to artifact after successful run", () => {
   const response = handleRequest({
     method: "GET",
