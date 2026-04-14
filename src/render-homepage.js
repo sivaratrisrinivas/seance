@@ -61,6 +61,22 @@ ${sharedStyles()}
         border-color: var(--accent);
       }
 
+      .footer-nav {
+        margin-top: 24px;
+        text-align: center;
+      }
+
+      .footer-nav a {
+        color: var(--muted);
+        font-size: 0.85rem;
+        text-decoration: none;
+      }
+
+      .footer-nav a:hover,
+      .footer-nav a:focus {
+        color: var(--accent);
+      }
+
     </style>
   </head>
   <body>
@@ -85,6 +101,9 @@ ${sharedStyles()}
             ${examplesHtml}
           </ul>
         </aside>
+        <nav class="footer-nav">
+          <a href="/how-it-works">How it works</a>
+        </nav>
       </section>
     </main>
   </body>

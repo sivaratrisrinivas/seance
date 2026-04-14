@@ -2,6 +2,7 @@ import { renderHomepage } from "./render-homepage.js";
 import { validateRitualQuery } from "./query-validation.js";
 import { renderRitualLoading } from "./render-ritual-loading.js";
 import { renderGenerating } from "./render-generating.js";
+import { renderHowItWorks } from "./render-how-it-works.js";
 import { renderValidationError } from "./render-validation-error.js";
 import { renderArtifact } from "./render-artifact.js";
 import { renderDisambiguation } from "./render-disambiguation.js";
@@ -28,6 +29,14 @@ export function handleRequest({
       status: 200,
       headers: { "content-type": "text/html; charset=utf-8" },
       body: renderHomepage(),
+    };
+  }
+
+  if (method === "GET" && pathname === "/how-it-works") {
+    return {
+      status: 200,
+      headers: { "content-type": "text/html; charset=utf-8" },
+      body: renderHowItWorks(),
     };
   }
 
