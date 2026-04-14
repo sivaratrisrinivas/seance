@@ -1,8 +1,9 @@
 import { escapeHtml } from "./html.js";
 import { sharedStyles } from "./shared-styles.js";
 
-export function renderArtifact({ place, year }) {
+export function renderArtifact({ place, year, archived = false }) {
   const queryLabel = [place, year].filter(Boolean).join(", ");
+  const headerText = archived ? "From your archive" : "Your seance";
 
   return `<!doctype html>
 <html lang="en">
@@ -99,7 +100,7 @@ ${sharedStyles()}
   <body>
     <main>
       <section class="shell" aria-labelledby="artifact-title">
-        <p class="artifact-header">Your seance</p>
+        <p class="artifact-header">${escapeHtml(headerText)}</p>
         <h1 class="artifact-place" id="artifact-title">${escapeHtml(queryLabel)}</h1>
         <div class="playback" aria-label="Audio playback">
           <div class="playback-wave" aria-hidden="true">

@@ -45,11 +45,12 @@ export function handleRequest({
   if (method === "GET" && pathname === "/artifact") {
     const place = searchParams.get("place") ?? "";
     const year = searchParams.get("year") ?? "";
+    const archived = searchParams.get("archived") === "true";
 
     return {
       status: 200,
       headers: { "content-type": "text/html; charset=utf-8" },
-      body: renderArtifact({ place, year }),
+      body: renderArtifact({ place, year, archived }),
     };
   }
 
