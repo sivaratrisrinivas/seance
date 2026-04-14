@@ -7,6 +7,7 @@ import { renderValidationError } from "./render-validation-error.js";
 import { renderArtifact } from "./render-artifact.js";
 import { renderDisambiguation } from "./render-disambiguation.js";
 import { resolvePlaceForYear, needsReinterpretation } from "./place-reinterpretation.js";
+import { storeArtifact, isArchived } from "./artifact-store.js";
 
 const AMBIGUOUS_PLACES = {
   Springfield: ["Springfield, Missouri", "Springfield, Illinois"],
@@ -79,6 +80,19 @@ export function handleRequest({
       };
     }
 
+    const cacheCheck = isArchived({ place: validation.place, year: validation.year });
+    if (cacheCheck) {
+      const artifactUrl = `/artifact?place=${encodeURIComponent(validation.place)}&year=${encodeURIComponent(validation.year)}&archived=true`;
+      return {
+        status: 302,
+        headers: {
+          "content-type": "text/plain; charset=utf-8",
+          location: artifactUrl,
+        },
+        body: `Redirecting to ${artifactUrl}`,
+      };
+    }
+
     const reinterpretation = resolvePlaceForYear(placeKey, validation.year);
     let finalPlace = validation.place;
     let reinterpretNote = "";
@@ -88,6 +102,13 @@ export function handleRequest({
     }
 
     const opaqueId = generateOpaqueId(finalPlace, validation.year);
+
+    storeArtifact({
+      place: finalPlace,
+      year: validation.year,
+      metadata: { reinterpretation: reinterpretation.reinterpreted ? reinterpretation : null },
+    });
+
     const generatingUrl = `/generating?id=${opaqueId}&place=${encodeURIComponent(validation.place)}&year=${encodeURIComponent(validation.year)}${reinterpretNote}`;
     return {
       status: 302,
