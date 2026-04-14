@@ -215,3 +215,17 @@ test("ambiguous place input triggers disambiguation step with candidates", () =>
   assert.match(response.body, /Missouri/i);
   assert.match(response.body, /Illinois/i);
 });
+
+test("historical place names are accepted and preserved in artifact display", () => {
+  const response = handleRequest({
+    method: "GET",
+    pathname: "/artifact",
+    searchParams: new URLSearchParams({
+      place: "Bombay, British India",
+      year: "1920",
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /Bombay.*1920/);
+});
