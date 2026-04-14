@@ -14,7 +14,7 @@ test("ritual route redirects to artifact after valid query", () => {
   });
 
   assert.equal(response.status, 302);
-  assert.equal(response.headers.location, "/artifact?place=Hyderabad&year=1987");
+  assert.match(response.headers.location, /\/artifact\?id=/);
 });
 
 test("artifact route shows mock result page with playback placeholder", () => {
@@ -144,6 +144,34 @@ test("artifact page includes native share option that falls back gracefully", ()
   assert.match(response.body, /Share/i);
 });
 
+test("ritual route redirects to artifact using opaque ID for stable routing", () => {
+  const response = handleRequest({
+    method: "GET",
+    pathname: "/ritual",
+    searchParams: new URLSearchParams({
+      place: "Hyderabad",
+      year: "1987",
+    }),
+  });
+
+  assert.equal(response.status, 302);
+  assert.match(response.headers.location, /\/artifact\?id=/);
+});
+
+test("artifact route accepts opaque ID for stable identity", () => {
+  const validId = btoa("Hyderabad:1987").replace(/=/g, "");
+  const response = handleRequest({
+    method: "GET",
+    pathname: "/artifact",
+    searchParams: new URLSearchParams({
+      id: validId,
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /Your seance/i);
+});
+
 test("ritual route redirects to artifact after successful run", () => {
   const response = handleRequest({
     method: "GET",
@@ -155,5 +183,5 @@ test("ritual route redirects to artifact after successful run", () => {
   });
 
   assert.equal(response.status, 302);
-  assert.equal(response.headers.location, "/artifact?place=Hyderabad&year=1987");
+  assert.match(response.headers.location, /\/artifact\?id=/);
 });
