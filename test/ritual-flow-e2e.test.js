@@ -3,8 +3,13 @@ import test from "node:test";
 
 import { handleRequest } from "../server.js";
 
-test("E2E: complete ritual flow from entry through artifact", () => {
-  const response = handleRequest({
+async function handle(req) {
+  const result = handleRequest(req);
+  return result?.then ? await result : result;
+}
+
+test("E2E: complete ritual flow from entry through artifact", async () => {
+  const response = await handle({
     method: "GET",
     pathname: "/",
   });
@@ -16,12 +21,12 @@ test("E2E: complete ritual flow from entry through artifact", () => {
   assert.equal(formAction, "/ritual");
 });
 
-test("E2E: ritual route accepts valid query and redirects to generating", () => {
-  const response = handleRequest({
+test("E2E: ritual route accepts valid query and redirects to generating", async () => {
+  const response = await handle({
     method: "GET",
     pathname: "/ritual",
     searchParams: new URLSearchParams({
-      place: "Hyderabad",
+      place: "Oslo",
       year: "1987",
     }),
   });
@@ -30,12 +35,12 @@ test("E2E: ritual route accepts valid query and redirects to generating", () => 
   assert.match(response.headers.location, /\/generating\?/);
 });
 
-test("E2E: generating page shows loading state then redirects to artifact", () => {
-  const response = handleRequest({
+test("E2E: generating page shows loading state then redirects to artifact", async () => {
+  const response = await handle({
     method: "GET",
     pathname: "/generating",
     searchParams: new URLSearchParams({
-      place: "Hyderabad",
+      place: "Oslo",
       year: "1987",
     }),
   });
@@ -46,33 +51,35 @@ test("E2E: generating page shows loading state then redirects to artifact", () =
   assert.match(response.body, /meta http-equiv="refresh"/);
 });
 
-test("E2E: artifact page shows playable artifact with place and year", () => {
-  const response = handleRequest({
+test("E2E: artifact page shows playable artifact with place and year", async () => {
+  const response = await handle({
     method: "GET",
     pathname: "/artifact",
     searchParams: new URLSearchParams({
-      id: btoa("Hyderabad:1987").replace(/=/g, ""),
+      place: "Venice",
+      year: "1500",
     }),
   });
 
   assert.equal(response.status, 200);
-  assert.match(response.body, /Hyderabad.*1987/);
-  assert.match(response.body, /Hear it again/);
+  assert.match(response.body, /Venice.*1500/);
+  assert.match(response.body, /playback/i);
+  assert.match(response.body, /Hear it again/i);
 });
 
-test("E2E: replay affordance allows hearing artifact again", () => {
-  const response = handleRequest({
+test("E2E: replay affordance allows hearing artifact again", async () => {
+  const response = await handle({
     method: "GET",
     pathname: "/artifact",
     searchParams: new URLSearchParams({
-      place: "Hyderabad",
-      year: "1987",
+      place: "Venice",
+      year: "1500",
     }),
   });
 
   assert.equal(response.status, 200);
   const replayLink = response.body.match(/href="([^"]+)">Hear it again/)?.[1];
   assert.ok(replayLink, "Replay link should exist");
-  assert.match(replayLink, /place=Hyderabad/);
-  assert.match(replayLink, /year=1987/);
+  assert.match(replayLink, /place=Venice/);
+  assert.match(replayLink, /year=1500/);
 });

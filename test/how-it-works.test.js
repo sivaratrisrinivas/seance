@@ -3,8 +3,13 @@ import test from "node:test";
 
 import { handleRequest } from "../server.js";
 
-test("how-it-works route serves the explanation page", () => {
-  const response = handleRequest({
+async function handle(req) {
+  const result = handleRequest(req);
+  return result?.then ? await result : result;
+}
+
+test("how-it-works route serves the explanation page", async () => {
+  const response = await handle({
     method: "GET",
     pathname: "/how-it-works",
   });
@@ -15,8 +20,8 @@ test("how-it-works route serves the explanation page", () => {
   assert.match(response.body, /Archive for Later/);
 });
 
-test("how-it-works page explains the tech stack", () => {
-  const response = handleRequest({
+test("how-it-works page explains the tech stack", async () => {
+  const response = await handle({
     method: "GET",
     pathname: "/how-it-works",
   });
@@ -25,8 +30,8 @@ test("how-it-works page explains the tech stack", () => {
   assert.match(response.body, /Turbopuffer/);
 });
 
-test("how-it-works page includes link back to homepage", () => {
-  const response = handleRequest({
+test("how-it-works page includes link back to homepage", async () => {
+  const response = await handle({
     method: "GET",
     pathname: "/how-it-works",
   });
@@ -34,8 +39,8 @@ test("how-it-works page includes link back to homepage", () => {
   assert.match(response.body, /href="\/"/);
 });
 
-test("homepage includes link to how-it-works page", () => {
-  const response = handleRequest({
+test("homepage includes link to how-it-works page", async () => {
+  const response = await handle({
     method: "GET",
     pathname: "/",
   });

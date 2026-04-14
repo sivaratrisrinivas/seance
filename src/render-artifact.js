@@ -1,9 +1,9 @@
 import { escapeHtml } from "./html.js";
 import { sharedStyles } from "./shared-styles.js";
 
-export function renderArtifact({ place, year, archived = false, confidence = "high", reinterpretation = null }) {
+export function renderArtifact({ place, year, archived = false, confidence = "high", confidenceScore = null, reinterpretation = null, generated = false, error = null, audioLayers = null, evidence = null, evidenceNote = null, sourceNotes = null }) {
   const queryLabel = [place, year].filter(Boolean).join(", ");
-  const headerText = archived ? "From your archive" : "Your seance";
+  const headerText = archived ? "From your archive" : generated ? "Freshly summoned" : "Your seance";
   const reinterpretNote = reinterpretation?.reinterpreted
     ? `<p class="trust-line"><em>Reconstructed</em> &middot; ${escapeHtml(reinterpretation.note)}</p>`
     : "";
@@ -13,6 +13,104 @@ export function renderArtifact({ place, year, archived = false, confidence = "hi
     medium: "Medium confidence",
     low: "Low confidence",
   }[confidence] ?? "Confidence: unknown";
+
+  const hasAudio = audioLayers && (audioLayers.bed || audioLayers.event || audioLayers.texture);
+
+  let evidenceBullet = "";
+  if (sourceNotes) {
+    evidenceBullet = `<p class="trust-line">${escapeHtml(sourceNotes)}</p>`;
+  } else if (evidenceNote) {
+    evidenceBullet = `<p class="trust-line">${escapeHtml(evidenceNote)}</p>`;
+  } else if (evidence && evidence.length > 0) {
+    const evDescriptions = evidence.slice(0, 2).map(e => e.description).join("; ");
+    evidenceBullet = `<p class="trust-line">Evidence: ${escapeHtml(evDescriptions)}</p>`;
+  }
+
+  let audioElements = "";
+  if (hasAudio) {
+    audioElements = `
+      <div class="audio-player" id="audio-player">
+        <div class="audio-visualizer" aria-hidden="true">
+          <canvas id="visualizer"></canvas>
+        </div>
+        <div class="audio-controls">
+          <button class="play-btn" id="play-btn" type="button" aria-label="Play soundscape">
+            <svg class="play-icon" viewBox="0 0 24 24" width="24" height="24"><polygon points="5,3 19,12 5,21" fill="currentColor"/></svg>
+            <svg class="pause-icon hidden" viewBox="0 0 24 24" width="24" height="24"><rect x="6" y="4" width="4" height="16" fill="currentColor"/><rect x="14" y="4" width="4" height="16" fill="currentColor"/></svg>
+          </button>
+          <div class="audio-timeline">
+            <div class="timeline-progress" id="timeline-progress"></div>
+          </div>
+          <span class="audio-time" id="audio-time">0:00 / 0:33</span>
+        </div>
+      </div>
+      <script>
+        (function() {
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          let isPlaying = false;
+          let audioBuffer = null;
+          let sourceNode = null;
+          let startTime = 0;
+          let pauseTime = 0;
+          const duration = 33;
+
+          const playBtn = document.getElementById('play-btn');
+          const playIcon = document.querySelector('.play-icon');
+          const pauseIcon = document.querySelector('.pause-icon');
+          const progress = document.getElementById('timeline-progress');
+          const timeDisplay = document.getElementById('audio-time');
+
+          async function initAudio() {
+            if (audioBuffer) return;
+            const base64Data = ${JSON.stringify(audioLayers || {})};
+            try {
+              const binaryString = atob(base64Data.bed || '');
+              const bytes = new Uint8Array(binaryString.length);
+              for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+              audioBuffer = await audioCtx.decodeAudioData(bytes.buffer);
+            } catch (e) {
+              console.log('Audio not available');
+            }
+          }
+
+          playBtn.addEventListener('click', async () => {
+            await initAudio();
+            if (!audioBuffer) return;
+
+            if (isPlaying) {
+              sourceNode.stop();
+              pauseTime += audioCtx.currentTime - startTime;
+              isPlaying = false;
+              playIcon.classList.remove('hidden');
+              pauseIcon.classList.add('hidden');
+            } else {
+              sourceNode = audioCtx.createBufferSource();
+              sourceNode.buffer = audioBuffer;
+              sourceNode.connect(audioCtx.destination);
+              sourceNode.start(0, pauseTime % audioBuffer.duration);
+              startTime = audioCtx.currentTime;
+              isPlaying = true;
+              playIcon.classList.add('hidden');
+              pauseIcon.classList.remove('hidden');
+              updateTime();
+            }
+          });
+
+          function updateTime() {
+            if (!isPlaying) return;
+            const elapsed = (pauseTime + audioCtx.currentTime - startTime) % audioBuffer.duration;
+            const pct = (elapsed / audioBuffer.duration) * 100;
+            progress.style.width = pct + '%';
+            const curr = Math.floor(elapsed);
+            timeDisplay.textContent = curr + ':' + String(Math.floor((elapsed % 1) * 60)).padStart(2, '0') + ' / ' + duration + ':00';
+            requestAnimationFrame(updateTime);
+          }
+        })();
+      </script>
+    `;
+  }
+
+  const errorMessage = error ? `<p class="error-note">Generation note: ${escapeHtml(error)}</p>` : "";
 
   return `<!doctype html>
 <html lang="en">
@@ -143,6 +241,92 @@ ${sharedStyles()}
         50% { transform: scaleY(0.5); }
       }
 
+      .audio-player {
+        margin: 32px 0 0;
+        padding: 24px;
+        border: 1px solid rgba(74, 56, 38, 0.14);
+        border-radius: 24px;
+        background: rgba(255, 253, 249, 0.64);
+      }
+
+      .audio-visualizer {
+        height: 60px;
+        margin: 0 0 16px;
+        background: rgba(74, 56, 38, 0.05);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .audio-visualizer canvas {
+        width: 100%;
+        height: 60px;
+      }
+
+      .audio-controls {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .play-btn {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        border: none;
+        background: var(--text);
+        color: #fffaf2;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.15s;
+      }
+
+      .play-btn:hover {
+        transform: scale(1.05);
+      }
+
+      .play-icon, .pause-icon {
+        position: absolute;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .audio-timeline {
+        flex: 1;
+        height: 6px;
+        background: rgba(74, 56, 38, 0.15);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+
+      .timeline-progress {
+        width: 0%;
+        height: 100%;
+        background: var(--accent);
+        transition: width 0.1s;
+      }
+
+      .audio-time {
+        font-size: 0.8rem;
+        color: var(--muted);
+        min-width: 80px;
+      }
+
+      .error-note {
+        margin: 16px 0 0;
+        padding: 12px 16px;
+        border: 1px solid rgba(74, 56, 38, 0.1);
+        border-radius: 12px;
+        background: rgba(255, 253, 249, 0.5);
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
       .playback-label {
         font-size: 0.95rem;
         color: var(--muted);
@@ -203,6 +387,7 @@ ${sharedStyles()}
         <p class="artifact-header">${escapeHtml(headerText)}</p>
         <h1 class="artifact-place" id="artifact-title">${escapeHtml(queryLabel)}</h1>
         <p class="trust-line"><strong>Evidence grounded</strong> &middot; ${escapeHtml(confidenceLabel)}</p>
+        ${evidenceBullet}
         ${reinterpretNote}
         <details class="about-panel">
           <summary class="about-toggle">About this reconstruction</summary>
@@ -216,11 +401,14 @@ ${sharedStyles()}
           </div>
         </details>
         <div class="playback" aria-label="Audio playback">
+          ${hasAudio ? audioElements : `
           <div class="playback-wave" aria-hidden="true">
             <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
           </div>
           <p class="playback-label">Mock playback placeholder</p>
+          `}
         </div>
+        ${errorMessage}
         <div class="actions">
           <a class="btn" href="/artifact?place=${encodeURIComponent(place)}&year=${encodeURIComponent(year)}">Hear it again</a>
         </div>

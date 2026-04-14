@@ -3,8 +3,13 @@ import test from "node:test";
 
 import { handleRequest } from "../server.js";
 
-test("homepage includes recent queries section markup", () => {
-  const response = handleRequest({
+async function handle(req) {
+  const result = handleRequest(req);
+  return result?.then ? await result : result;
+}
+
+test("homepage includes recent queries section markup", async () => {
+  const response = await handle({
     method: "GET",
     pathname: "/",
   });
@@ -13,8 +18,8 @@ test("homepage includes recent queries section markup", () => {
   assert.match(response.body, /recent-queries/i);
 });
 
-test("homepage includes client-side JavaScript for localStorage", () => {
-  const response = handleRequest({
+test("homepage includes client-side JavaScript for localStorage", async () => {
+  const response = await handle({
     method: "GET",
     pathname: "/",
   });
@@ -23,8 +28,8 @@ test("homepage includes client-side JavaScript for localStorage", () => {
   assert.match(response.body, /seance-history/);
 });
 
-test("recent queries section is visually subtle", () => {
-  const response = handleRequest({
+test("recent queries section is visually subtle", async () => {
+  const response = await handle({
     method: "GET",
     pathname: "/",
   });
@@ -33,8 +38,8 @@ test("recent queries section is visually subtle", () => {
   assert.ok(subtleClasses || response.body.includes("recent-queries"), "Should have subtle recent queries section");
 });
 
-test("homepage accepts existing homepage structure", () => {
-  const response = handleRequest({
+test("homepage accepts existing homepage structure", async () => {
+  const response = await handle({
     method: "GET",
     pathname: "/",
   });

@@ -3,11 +3,16 @@ import test from "node:test";
 
 import { handleRequest } from "../server.js";
 
-test("ritual route rejects future years with a clear validation response", () => {
+async function handle(req) {
+  const result = handleRequest(req);
+  return result?.then ? await result : result;
+}
+
+test("ritual route rejects future years with a clear validation response", async () => {
   const currentYear = new Date().getFullYear();
   const futureYear = String(currentYear + 1);
 
-  const response = handleRequest({
+  const response = await handle({
     method: "GET",
     pathname: "/ritual",
     searchParams: new URLSearchParams({
@@ -22,8 +27,8 @@ test("ritual route rejects future years with a clear validation response", () =>
   assert.match(response.body, /Hyderabad/);
 });
 
-test("ritual route rejects non-exact numeric year formats", () => {
-  const response = handleRequest({
+test("ritual route rejects non-exact numeric year formats", async () => {
+  const response = await handle({
     method: "GET",
     pathname: "/ritual",
     searchParams: new URLSearchParams({
@@ -38,14 +43,14 @@ test("ritual route rejects non-exact numeric year formats", () => {
   assert.match(response.body, /2026\.0/);
 });
 
-test("ritual route allows the current year for a valid place query", () => {
+test("ritual route allows the current year for a valid place query", async () => {
   const currentYear = String(new Date().getFullYear());
 
-  const response = handleRequest({
+  const response = await handle({
     method: "GET",
     pathname: "/ritual",
     searchParams: new URLSearchParams({
-      place: "Hyderabad",
+      place: "Sydney",
       year: currentYear,
     }),
   });

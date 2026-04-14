@@ -123,3 +123,31 @@ export function buildHeroPrompts(metadata) {
     texture: buildTexturePrompt(metadata, context, confidence),
   };
 }
+
+export function buildPrompts({ place, year, evidence, evidenceByLayer = null }) {
+  const context = getPlaceContext(place);
+
+  const metadata = {
+    place,
+    year,
+    evidence: evidence || [],
+  };
+
+  if (evidenceByLayer) {
+    metadata.evidence = [
+      ...(evidenceByLayer.bed || []),
+      ...(evidenceByLayer.event || []),
+      ...(evidenceByLayer.texture || []),
+    ];
+  }
+
+  const confidence = evidenceByLayer 
+    ? (evidenceByLayer.bed?.length > 0 || evidenceByLayer.event?.length > 0 || evidenceByLayer.texture?.length > 0 ? "high" : "low")
+    : "high";
+
+  return {
+    bed: buildBedPrompt(metadata, context),
+    event: buildEventPrompt(metadata, context),
+    texture: buildTexturePrompt(metadata, context, confidence),
+  };
+}

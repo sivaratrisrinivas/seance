@@ -7,7 +7,12 @@ import { renderValidationError } from "./render-validation-error.js";
 import { renderArtifact } from "./render-artifact.js";
 import { renderDisambiguation } from "./render-disambiguation.js";
 import { resolvePlaceForYear, needsReinterpretation } from "./place-reinterpretation.js";
-import { storeArtifact, isArchived } from "./artifact-store.js";
+import { storeArtifact as tpStoreArtifact, getArtifact as tpGetArtifact, isConfigured as tpIsConfigured } from "./turbopuffer-client.js";
+import { isArchived } from "./artifact-store.js";
+import { generateSoundscape, isConfigured as elIsConfigured } from "./elevenlabs-client.js";
+import { buildPrompts } from "./prompt-builder.js";
+import { extractEvidence, getEvidenceSummary } from "./evidence-extractor.js";
+import { generateReconstructionMetadata, getReconstructionSummary } from "./reconstruction-metadata.js";
 
 const AMBIGUOUS_PLACES = {
   Springfield: ["Springfield, Missouri", "Springfield, Illinois"],
@@ -20,7 +25,7 @@ function generateOpaqueId(place, year) {
   return btoa(`${place}:${year}`).replace(/=/g, "");
 }
 
-export function handleRequest({
+export async function handleRequest({
   method = "GET",
   pathname = "/",
   searchParams = new URLSearchParams(),
@@ -80,8 +85,8 @@ export function handleRequest({
       };
     }
 
-    const cacheCheck = isArchived({ place: validation.place, year: validation.year });
-    if (cacheCheck) {
+    const existingArtifact = await tpGetArtifact(validation.place, validation.year);
+    if (existingArtifact && existingArtifact.audio_layers) {
       const artifactUrl = `/artifact?place=${encodeURIComponent(validation.place)}&year=${encodeURIComponent(validation.year)}&archived=true`;
       return {
         status: 302,
@@ -103,7 +108,7 @@ export function handleRequest({
 
     const opaqueId = generateOpaqueId(finalPlace, validation.year);
 
-    storeArtifact({
+    await tpStoreArtifact({
       place: finalPlace,
       year: validation.year,
       metadata: { reinterpretation: reinterpretation.reinterpreted ? reinterpretation : null },
@@ -128,9 +133,70 @@ export function handleRequest({
 
     const finalId = id || (place && year ? generateOpaqueId(place, year) : "");
 
-    const artifactUrl = finalId
-      ? `/artifact?id=${finalId}${note ? `&note=${encodeURIComponent(note)}` : ""}`
-      : `/artifact?place=${encodeURIComponent(place)}&year=${encodeURIComponent(year)}${note ? `&note=${encodeURIComponent(note)}` : ""}`;
+    let audioLayers = null;
+    let prompts = null;
+    let error = null;
+    let evidenceData = null;
+    let reconstructionMetadata = null;
+    let confidence = "high";
+
+    if (elIsConfigured()) {
+      try {
+        const placeKey = place.split(",")[0].trim();
+        
+        reconstructionMetadata = generateReconstructionMetadata({ place: placeKey, year: parseInt(year) });
+        
+        confidence = reconstructionMetadata.confidence;
+        const evidenceNote = reconstructionMetadata.evidenceNote;
+
+        prompts = buildPrompts({
+          place: reconstructionMetadata.canonicalPlace,
+          year: reconstructionMetadata.year,
+          evidenceByLayer: reconstructionMetadata.evidenceByLayer,
+        });
+
+        audioLayers = await generateSoundscape({
+          place: reconstructionMetadata.canonicalPlace,
+          year: reconstructionMetadata.year,
+          evidenceByLayer: reconstructionMetadata.evidenceByLayer,
+        });
+
+        const artifactData = {
+          place: reconstructionMetadata.canonicalPlace,
+          year: reconstructionMetadata.year,
+          metadata: reconstructionMetadata.reinterpretation,
+          evidence: reconstructionMetadata.evidenceByLayer.bed?.concat(
+            reconstructionMetadata.evidenceByLayer.event || [],
+            reconstructionMetadata.evidenceByLayer.texture || []
+          ) || [],
+          prompts,
+          audioLayers,
+          confidence,
+          confidenceScore: reconstructionMetadata.confidenceScore,
+          evidenceNote: reconstructionMetadata.evidenceNote,
+          sourceNotes: reconstructionMetadata.sourceNotes,
+        };
+
+        if (tpIsConfigured()) {
+          await tpStoreArtifact(artifactData);
+        } else {
+          await tpStoreArtifact(artifactData);
+        }
+      } catch (e) {
+        error = e.message;
+      }
+    }
+
+    const params = new URLSearchParams();
+    if (finalId) params.set("id", finalId);
+    if (place) params.set("place", place);
+    if (year) params.set("year", year);
+    if (note) params.set("note", note);
+    if (audioLayers) params.set("generated", "true");
+    if (error) params.set("error", error);
+    if (reconstructionMetadata) params.set("confidence", reconstructionMetadata.confidence);
+
+    const artifactUrl = `/artifact?${params.toString()}`;
 
     return {
       status: 200,
@@ -145,12 +211,27 @@ export function handleRequest({
     let year = searchParams.get("year") ?? "";
     const note = searchParams.get("note") ?? "";
     const archived = searchParams.get("archived") === "true";
+    const generated = searchParams.get("generated") === "true";
+    const error = searchParams.get("error") ?? "";
 
     if (id && !place && !year) {
       const decoded = atob(id);
       const parts = decoded.split(":");
       place = parts[0] || "";
       year = parts[1] || "";
+    }
+
+    let artifactData = null;
+    let confidence = "high";
+    let isArchived = archived;
+    if (place && year && tpIsConfigured()) {
+      artifactData = await tpGetArtifact(place, year);
+      if (artifactData) {
+        confidence = artifactData?.confidence || "high";
+        if (!generated && !archived) {
+          isArchived = true;
+        }
+      }
     }
 
     const reinterpretation = note
@@ -160,7 +241,20 @@ export function handleRequest({
     return {
       status: 200,
       headers: { "content-type": "text/html; charset=utf-8" },
-      body: renderArtifact({ place, year, archived, reinterpretation }),
+      body: renderArtifact({ 
+        place, 
+        year, 
+        archived: isArchived, 
+        reinterpretation,
+        generated,
+        error,
+        confidence: artifactData?.confidence || confidence || "high",
+        confidenceScore: artifactData?.confidence_score || null,
+        evidence: artifactData?.evidence ? JSON.parse(artifactData.evidence) : null,
+        evidenceNote: artifactData?.evidence_note || null,
+        sourceNotes: artifactData?.source_notes || null,
+        audioLayers: artifactData?.audio_layers ? JSON.parse(artifactData.audio_layers) : null,
+      }),
     };
   }
 

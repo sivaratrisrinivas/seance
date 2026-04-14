@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { buildHeroPrompts } from "../src/prompt-builder.js";
 
-test("prompt builder returns three distinct prompts for bed, event, and texture", () => {
+test("prompt builder returns three distinct prompts for bed, event, and texture", async () => {
   const metadata = {
     place: "Hyderabad",
     year: "1987",
@@ -25,7 +25,7 @@ test("prompt builder returns three distinct prompts for bed, event, and texture"
   assert.notEqual(prompts.event, prompts.texture, "Event and texture should be different");
 });
 
-test("prompt builder includes negative constraints to prevent modern contamination", () => {
+test("prompt builder includes negative constraints to prevent modern contamination", async () => {
   const metadata = {
     place: "Hyderabad",
     year: "1987",
@@ -40,7 +40,7 @@ test("prompt builder includes negative constraints to prevent modern contaminati
   assert.match(allPrompts, /not (film|score|hollywood|dramatic)/, "Prompts should avoid film score style");
 });
 
-test("prompt builder includes place and year context in each prompt", () => {
+test("prompt builder includes place and year context in each prompt", async () => {
   const metadata = {
     place: "Hyderabad",
     year: "1987",
@@ -55,7 +55,7 @@ test("prompt builder includes place and year context in each prompt", () => {
   assert.match(prompts.texture, /Hyderabad|Indian|City/);
 });
 
-test("prompt builder uses evidence in layer mapping", () => {
+test("prompt builder uses evidence in layer mapping", async () => {
   const metadata = {
     place: "Calcutta",
     year: "1945",
@@ -72,7 +72,7 @@ test("prompt builder uses evidence in layer mapping", () => {
   assert.match(eventLower, /tram|bell|port/);
 });
 
-test("prompt builder handles low confidence with degraded specificity", () => {
+test("prompt builder handles low confidence with degraded specificity", async () => {
   const metadata = {
     place: "UnknownTown",
     year: "1500",

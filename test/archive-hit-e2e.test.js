@@ -3,8 +3,13 @@ import test from "node:test";
 
 import { handleRequest } from "../server.js";
 
-test("E2E: repeat request resolves to archived artifact", () => {
-  const response = handleRequest({
+async function handle(req) {
+  const result = handleRequest(req);
+  return result?.then ? await result : result;
+}
+
+test("E2E: repeat request resolves to archived artifact", async () => {
+  const response = await handle({
     method: "GET",
     pathname: "/artifact",
     searchParams: new URLSearchParams({
@@ -19,8 +24,8 @@ test("E2E: repeat request resolves to archived artifact", () => {
   assert.match(response.body, /Hyderabad.*1987/);
 });
 
-test("E2E: archived artifact shows archive-specific language", () => {
-  const response = handleRequest({
+test("E2E: archived artifact shows archive-specific language", async () => {
+  const response = await handle({
     method: "GET",
     pathname: "/artifact",
     searchParams: new URLSearchParams({
@@ -36,8 +41,8 @@ test("E2E: archived artifact shows archive-specific language", () => {
   assert.doesNotMatch(response.body, /hit/i);
 });
 
-test("E2E: archived artifacts maintain same identity", () => {
-  const firstResponse = handleRequest({
+test("E2E: archived artifacts maintain same identity", async () => {
+  const firstResponse = await handle({
     method: "GET",
     pathname: "/artifact",
     searchParams: new URLSearchParams({
@@ -47,7 +52,7 @@ test("E2E: archived artifacts maintain same identity", () => {
     }),
   });
 
-  const secondResponse = handleRequest({
+  const secondResponse = await handle({
     method: "GET",
     pathname: "/artifact",
     searchParams: new URLSearchParams({
@@ -60,8 +65,8 @@ test("E2E: archived artifacts maintain same identity", () => {
   assert.equal(firstResponse.body, secondResponse.body);
 });
 
-test("E2E: non-archived artifacts show live generation language", () => {
-  const response = handleRequest({
+test("E2E: non-archived artifacts show live generation language", async () => {
+  const response = await handle({
     method: "GET",
     pathname: "/artifact",
     searchParams: new URLSearchParams({
