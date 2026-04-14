@@ -2,6 +2,7 @@ import { renderHomepage } from "./render-homepage.js";
 import { validateRitualQuery } from "./query-validation.js";
 import { renderRitualLoading } from "./render-ritual-loading.js";
 import { renderValidationError } from "./render-validation-error.js";
+import { renderArtifact } from "./render-artifact.js";
 
 export function handleRequest({
   method = "GET",
@@ -37,6 +38,17 @@ export function handleRequest({
         place: validation.place,
         year: validation.year,
       }),
+    };
+  }
+
+  if (method === "GET" && pathname === "/artifact") {
+    const place = searchParams.get("place") ?? "";
+    const year = searchParams.get("year") ?? "";
+
+    return {
+      status: 200,
+      headers: { "content-type": "text/html; charset=utf-8" },
+      body: renderArtifact({ place, year }),
     };
   }
 

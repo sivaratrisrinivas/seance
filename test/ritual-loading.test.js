@@ -38,3 +38,21 @@ test("ritual route includes headphones guidance for better audio experience", ()
   assert.match(response.body, /headphones/i);
   assert.match(response.body, /best heard/i);
 });
+
+test("artifact route shows mock result page with playback placeholder", () => {
+  const response = handleRequest({
+    method: "GET",
+    pathname: "/artifact",
+    searchParams: new URLSearchParams({
+      place: "Hyderabad",
+      year: "1987",
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /Hyderabad.*1987/);
+  assert.match(response.body, /playback/i);
+  assert.match(response.body, /Hear it again/i);
+  assert.doesNotMatch(response.body, /scrub/i);
+  assert.doesNotMatch(response.body, /download/i);
+});
