@@ -77,6 +77,45 @@ ${sharedStyles()}
         color: var(--accent);
       }
 
+      .recent-queries {
+        margin-top: 20px;
+        padding-top: 16px;
+        border-top: 1px solid rgba(74, 56, 38, 0.1);
+      }
+
+      .recent-kicker {
+        margin: 0;
+        font-size: 0.72rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+        opacity: 0.7;
+      }
+
+      .recent-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 10px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .recent-list li a {
+        display: block;
+        padding: 6px 12px;
+        border-radius: 999px;
+        color: var(--muted);
+        font-size: 0.8rem;
+        text-decoration: none;
+        opacity: 0.6;
+        transition: opacity 0.2s;
+      }
+
+      .recent-list li a:hover {
+        opacity: 1;
+      }
+
     </style>
   </head>
   <body>
@@ -104,8 +143,52 @@ ${sharedStyles()}
         <nav class="footer-nav">
           <a href="/how-it-works">How it works</a>
         </nav>
+        <aside class="recent-queries" aria-label="Recent queries" hidden>
+          <p class="recent-kicker">Recent</p>
+          <ul class="recent-list"></ul>
+        </aside>
       </section>
     </main>
+    <script>
+(function() {
+  var KEY = 'seance-history';
+  var MAX = 4;
+  var form = document.querySelector('form');
+  var recentSection = document.querySelector('.recent-queries');
+  var recentList = document.querySelector('.recent-list');
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+  function save(items) {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(items.slice(0, MAX)));
+    } catch (e) {}
+  }
+  function render(items) {
+    if (!items.length) return;
+    recentSection.hidden = false;
+    recentList.innerHTML = items.map(function(item) {
+      return '<li><a href="/ritual?place=' + encodeURIComponent(item.place) + '&year=' + encodeURIComponent(item.year) + '">' + item.place + ' · ' + item.year + '</a></li>';
+    }).join('');
+  }
+  form.addEventListener('submit', function(e) {
+    var place = form.querySelector('[name="place"]').value.trim();
+    var year = form.querySelector('[name="year"]').value.trim();
+    if (!place || !year) return;
+    var items = load().filter(function(item) {
+      return !(item.place === place && item.year === year);
+    });
+    items.unshift({ place: place, year: year, at: Date.now() });
+    save(items);
+  });
+  render(load());
+})();
+    </script>
   </body>
 </html>`;
 }
