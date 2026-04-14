@@ -14,6 +14,13 @@ test("homepage shows the premise and both inputs", () => {
   assert.match(response.body, /type="number"/);
 });
 
+test("homepage exposes a single Begin seance action tied to the ritual flow", () => {
+  const response = handleRequest({ method: "GET", pathname: "/" });
+
+  assert.match(response.body, /<form action="\/ritual" method="get"/);
+  assert.match(response.body, />Begin s(?:&eacute;|é)ance</);
+});
+
 test("homepage stays anonymous and account free", () => {
   const response = handleRequest({ method: "GET", pathname: "/" });
 

@@ -1,11 +1,26 @@
 import http from "node:http";
 
-export function handleRequest({ method = "GET", pathname = "/" } = {}) {
+export function handleRequest({
+  method = "GET",
+  pathname = "/",
+  searchParams = new URLSearchParams(),
+} = {}) {
   if (method === "GET" && pathname === "/") {
     return {
       status: 200,
       headers: { "content-type": "text/html; charset=utf-8" },
       body: renderHomepage(),
+    };
+  }
+
+  if (method === "GET" && pathname === "/ritual") {
+    return {
+      status: 200,
+      headers: { "content-type": "text/html; charset=utf-8" },
+      body: renderRitualLoading({
+        place: searchParams.get("place") ?? "",
+        year: searchParams.get("year") ?? "",
+      }),
     };
   }
 
@@ -24,6 +39,72 @@ export function renderHomepage() {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Seance</title>
     <style>
+${sharedStyles()}
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="shell" aria-labelledby="home-title">
+        <h1 class="brand" id="home-title">S&eacute;ance</h1>
+        <p class="premise">Hear a grounded sound reconstruction of any place and year.</p>
+        <form action="/ritual" method="get" aria-label="Historical sound reconstruction query">
+          <label>
+            Place
+            <input name="place" type="text" autocomplete="off" placeholder="Old City, Hyderabad" required />
+          </label>
+          <label>
+            Year
+            <input name="year" type="number" inputmode="numeric" placeholder="1987" step="1" required />
+          </label>
+          <button class="cta" type="submit">Begin s&eacute;ance</button>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>`;
+}
+
+export function renderRitualLoading({ place, year }) {
+  const queryLabel = [place, year].filter(Boolean).join(", ");
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Preparing your Seance</title>
+    <style>
+${sharedStyles()}
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="shell" aria-labelledby="ritual-title">
+        <p class="status-kicker">Ritual in progress</p>
+        <h1 class="brand" id="ritual-title">Preparing your s&eacute;ance</h1>
+        <p class="loading-copy">Tracing an evidence-grounded listening perspective for ${escapeHtml(queryLabel || "your query")}.</p>
+        <ol class="stage-list" aria-label="Reconstruction stages">
+          <li class="stage">
+            <strong>Resolving the place</strong>
+            <span>Locating the listening perspective implied by your query.</span>
+          </li>
+          <li class="stage">
+            <strong>Gathering historical evidence</strong>
+            <span>Collecting the details that can support the reconstruction.</span>
+          </li>
+          <li class="stage">
+            <strong>Shaping the reconstruction</strong>
+            <span>Preparing the first soundscape pass from the mocked backend stages.</span>
+          </li>
+        </ol>
+      </section>
+    </main>
+  </body>
+</html>`;
+}
+
+function sharedStyles() {
+  return `
       :root {
         color-scheme: light;
         --bg: #f6efe3;
@@ -106,6 +187,63 @@ export function renderHomepage() {
         font-size: 1.05rem;
       }
 
+      .cta {
+        grid-column: 1 / -1;
+        justify-self: start;
+        padding: 14px 24px;
+        border: 0;
+        border-radius: 999px;
+        background: var(--text);
+        color: #fffaf2;
+        font: inherit;
+        font-size: 1rem;
+        cursor: pointer;
+      }
+
+      .status-kicker {
+        margin: 0 0 12px;
+        font-size: 0.82rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .loading-copy {
+        margin: 18px 0 0;
+        max-width: 34ch;
+        font-size: 1.05rem;
+        line-height: 1.6;
+        color: var(--muted);
+      }
+
+      .stage-list {
+        display: grid;
+        gap: 12px;
+        margin: 32px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .stage {
+        padding: 14px 16px;
+        border: 1px solid rgba(74, 56, 38, 0.14);
+        border-radius: 18px;
+        background: rgba(255, 253, 249, 0.78);
+      }
+
+      .stage strong {
+        display: block;
+        font-size: 0.95rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .stage span {
+        display: block;
+        margin-top: 6px;
+        color: var(--muted);
+      }
+
       input:focus {
         outline: 2px solid rgba(156, 93, 40, 0.2);
         border-color: var(--accent);
@@ -125,38 +263,28 @@ export function renderHomepage() {
           grid-template-columns: 1fr;
         }
       }
-    </style>
-  </head>
-  <body>
-    <main>
-      <section class="shell" aria-labelledby="home-title">
-        <h1 class="brand" id="home-title">S&eacute;ance</h1>
-        <p class="premise">Hear a grounded sound reconstruction of any place and year.</p>
-        <form action="/" method="get" aria-label="Historical sound reconstruction query">
-          <label>
-            Place
-            <input name="place" type="text" autocomplete="off" placeholder="Old City, Hyderabad" />
-          </label>
-          <label>
-            Year
-            <input name="year" type="number" inputmode="numeric" placeholder="1987" step="1" />
-          </label>
-        </form>
-      </section>
-    </main>
-  </body>
-</html>`;
+  `;
+}
+
+function escapeHtml(value) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 export function createServer() {
   return http.createServer((request, response) => {
-    const pathname = new URL(
+    const url = new URL(
       request.url ?? "/",
       `http://${request.headers.host ?? "localhost"}`,
-    ).pathname;
+    );
     const result = handleRequest({
       method: request.method ?? "GET",
-      pathname,
+      pathname: url.pathname,
+      searchParams: url.searchParams,
     });
 
     response.writeHead(result.status, result.headers);
