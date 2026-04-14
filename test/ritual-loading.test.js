@@ -23,3 +23,18 @@ test("ritual route shows a staged loading shell for the submitted place and year
   assert.match(response.body, /Shaping the reconstruction/);
   assert.doesNotMatch(response.body, /spinner/i);
 });
+
+test("ritual route includes headphones guidance for better audio experience", () => {
+  const response = handleRequest({
+    method: "GET",
+    pathname: "/ritual",
+    searchParams: new URLSearchParams({
+      place: "Hyderabad",
+      year: "1987",
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /headphones/i);
+  assert.match(response.body, /best heard/i);
+});

@@ -1,0 +1,48 @@
+import { renderHomepage } from "./render-homepage.js";
+import { validateRitualQuery } from "./query-validation.js";
+import { renderRitualLoading } from "./render-ritual-loading.js";
+import { renderValidationError } from "./render-validation-error.js";
+
+export function handleRequest({
+  method = "GET",
+  pathname = "/",
+  searchParams = new URLSearchParams(),
+} = {}) {
+  if (method === "GET" && pathname === "/") {
+    return {
+      status: 200,
+      headers: { "content-type": "text/html; charset=utf-8" },
+      body: renderHomepage(),
+    };
+  }
+
+  if (method === "GET" && pathname === "/ritual") {
+    const validation = validateRitualQuery({
+      place: searchParams.get("place") ?? "",
+      year: searchParams.get("year") ?? "",
+    });
+
+    if (!validation.ok) {
+      return {
+        status: 422,
+        headers: { "content-type": "text/html; charset=utf-8" },
+        body: renderValidationError(validation),
+      };
+    }
+
+    return {
+      status: 200,
+      headers: { "content-type": "text/html; charset=utf-8" },
+      body: renderRitualLoading({
+        place: validation.place,
+        year: validation.year,
+      }),
+    };
+  }
+
+  return {
+    status: 404,
+    headers: { "content-type": "text/plain; charset=utf-8" },
+    body: "Not Found",
+  };
+}
