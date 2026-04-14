@@ -100,6 +100,21 @@ test("artifact page shows always-visible trust line with confidence", () => {
   assert.doesNotMatch(response.body, /spinner/i);
 });
 
+test("artifact page includes expandable About this reconstruction panel", () => {
+  const response = handleRequest({
+    method: "GET",
+    pathname: "/artifact",
+    searchParams: new URLSearchParams({
+      place: "Hyderabad",
+      year: "1987",
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /About this reconstruction/i);
+  assert.match(response.body, /details/i);
+});
+
 test("ritual route redirects to artifact after successful run", () => {
   const response = handleRequest({
     method: "GET",

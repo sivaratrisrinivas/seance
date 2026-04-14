@@ -49,6 +49,59 @@ ${sharedStyles()}
         font-weight: normal;
       }
 
+      .about-panel {
+        margin: 16px 0 0;
+        border: 1px solid rgba(74, 56, 38, 0.1);
+        border-radius: 12px;
+        background: rgba(255, 253, 249, 0.4);
+        overflow: hidden;
+      }
+
+      .about-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        padding: 12px 16px;
+        border: none;
+        background: transparent;
+        font: inherit;
+        font-size: 0.85rem;
+        color: var(--muted);
+        cursor: pointer;
+        text-align: left;
+      }
+
+      .about-toggle:hover {
+        background: rgba(255, 253, 249, 0.5);
+      }
+
+      .about-toggle::after {
+        content: "▼";
+        font-size: 0.7rem;
+        transition: transform 0.2s;
+      }
+
+      .about-panel[open] .about-toggle::after {
+        transform: rotate(180deg);
+      }
+
+      .about-content {
+        padding: 0 16px 16px;
+        font-size: 0.85rem;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .about-content ul {
+        margin: 8px 0 0;
+        padding-left: 20px;
+      }
+
+      .about-content li {
+        margin: 4px 0;
+      }
+
       .playback {
         margin: 32px 0 0;
         padding: 32px 24px;
@@ -124,6 +177,17 @@ ${sharedStyles()}
         <p class="artifact-header">${escapeHtml(headerText)}</p>
         <h1 class="artifact-place" id="artifact-title">${escapeHtml(queryLabel)}</h1>
         <p class="trust-line"><strong>Evidence grounded</strong> &middot; ${escapeHtml(confidenceLabel)}</p>
+        <details class="about-panel">
+          <summary class="about-toggle">About this reconstruction</summary>
+          <div class="about-content">
+            <p>This soundscape was generated using historical evidence from multiple sources. The audio combines ambient bed, event sounds, and texture layers to create an immersive historical soundscape.</p>
+            <ul>
+              <li>Historical audio recordings from the period</li>
+              <li>Documented soundscapes and oral histories</li>
+              <li>Academic research on historical soundscapes</li>
+            </ul>
+          </div>
+        </details>
         <div class="playback" aria-label="Audio playback">
           <div class="playback-wave" aria-hidden="true">
             <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
