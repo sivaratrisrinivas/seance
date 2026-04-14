@@ -169,6 +169,29 @@ ${sharedStyles()}
         background: transparent;
         color: var(--text);
       }
+
+      .share-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 16px;
+        justify-content: center;
+      }
+
+      .share-btn {
+        padding: 10px 16px;
+        border: 1px solid rgba(74, 56, 38, 0.2);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--muted);
+        font: inherit;
+        font-size: 0.85rem;
+        cursor: pointer;
+      }
+
+      .share-btn:hover {
+        background: rgba(255, 253, 249, 0.5);
+        border-color: var(--accent);
+      }
     </style>
   </head>
   <body>
@@ -196,6 +219,10 @@ ${sharedStyles()}
         </div>
         <div class="actions">
           <a class="btn" href="/artifact?place=${encodeURIComponent(place)}&year=${encodeURIComponent(year)}">Hear it again</a>
+        </div>
+        <div class="share-actions">
+          <button class="share-btn" type="button" onclick="navigator.clipboard.writeText(window.location.href)">Copy link</button>
+          <button class="share-btn" type="button">Save card</button>
         </div>
       </section>
     </main>

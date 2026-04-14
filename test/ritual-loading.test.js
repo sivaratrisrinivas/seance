@@ -115,6 +115,21 @@ test("artifact page includes expandable About this reconstruction panel", () => 
   assert.match(response.body, /details/i);
 });
 
+test("artifact page includes copy link and save card share actions", () => {
+  const response = handleRequest({
+    method: "GET",
+    pathname: "/artifact",
+    searchParams: new URLSearchParams({
+      place: "Hyderabad",
+      year: "1987",
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /Copy link/i);
+  assert.match(response.body, /Save card/i);
+});
+
 test("ritual route redirects to artifact after successful run", () => {
   const response = handleRequest({
     method: "GET",
