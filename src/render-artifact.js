@@ -56,7 +56,8 @@ export function renderArtifact({ place, year, archived = false, confidence = "hi
           let sourceNode = null;
           let startTime = 0;
           let pauseTime = 0;
-          const duration = 33;
+          let duration = 33;
+          let audioDuration = 0;
 
           const playBtn = document.getElementById('play-btn');
           const playIcon = document.querySelector('.play-icon');
@@ -72,6 +73,8 @@ export function renderArtifact({ place, year, archived = false, confidence = "hi
               const bytes = new Uint8Array(binaryString.length);
               for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
               audioBuffer = await audioCtx.decodeAudioData(bytes.buffer);
+              audioDuration = audioBuffer.duration;
+              duration = Math.floor(audioDuration);
             } catch (e) {
               console.log('Audio not available');
             }
@@ -87,11 +90,21 @@ export function renderArtifact({ place, year, archived = false, confidence = "hi
               isPlaying = false;
               playIcon.classList.remove('hidden');
               pauseIcon.classList.add('hidden');
+              sourceNode = null;
             } else {
               sourceNode = audioCtx.createBufferSource();
               sourceNode.buffer = audioBuffer;
               sourceNode.connect(audioCtx.destination);
-              sourceNode.start(0, pauseTime % audioBuffer.duration);
+              sourceNode.onended = () => {
+                if (isPlaying) {
+                  isPlaying = false;
+                  playIcon.classList.remove('hidden');
+                  pauseIcon.classList.add('hidden');
+                  pauseTime = 0;
+                  progress.style.width = '0%';
+                }
+              };
+              sourceNode.start(0, pauseTime);
               startTime = audioCtx.currentTime;
               isPlaying = true;
               playIcon.classList.add('hidden');
