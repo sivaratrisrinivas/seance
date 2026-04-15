@@ -77,3 +77,12 @@ The system handles partial generation gracefully:
 - **Threshold**: At least 2 layers must succeed; fewer throws an error
 - **Partial artifacts**: When 2+ layers succeed but not all 3, artifact is marked partial
 - **Partial UI**: Shows "Partial reconstruction" note with layer availability
+
+## Async Jobs
+
+Generation runs as background jobs:
+
+- Job states: PENDING, PROCESSING, COMPLETED, FAILED
+- Job endpoint: GET `/job/status?id=job_xxx` returns JSON state
+- Generating page polls job status via JavaScript
+- Archive flow remains unchanged

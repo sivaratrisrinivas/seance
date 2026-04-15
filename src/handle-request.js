@@ -13,6 +13,7 @@ import { generateSoundscape, isConfigured as elIsConfigured } from "./elevenlabs
 import { buildPrompts } from "./prompt-builder.js";
 import { extractEvidence, getEvidenceSummary } from "./evidence-extractor.js";
 import { generateReconstructionMetadata, getReconstructionSummary } from "./reconstruction-metadata.js";
+import { createJob, getJob, JobState, updateJobState } from "./generation-job.js";
 
 const AMBIGUOUS_PLACES = {
   Springfield: ["Springfield, Missouri", "Springfield, Illinois"],
@@ -146,7 +147,50 @@ export async function handleRequest({
     };
   }
 
-  if (method === "GET" && pathname === "/generating") {
+  async function runGenerationJob(job) {
+  updateJobState(job.id, JobState.PROCESSING);
+  
+  try {
+    const placeKey = job.place.split(",")[0].trim();
+    const reconstructionMetadata = generateReconstructionMetadata({ place: placeKey, year: parseInt(job.year) });
+    
+    const prompts = buildPrompts({
+      place: reconstructionMetadata.canonicalPlace,
+      year: reconstructionMetadata.year,
+      evidenceByLayer: reconstructionMetadata.evidenceByLayer,
+    });
+
+    const audioLayers = await generateSoundscape({
+      place: reconstructionMetadata.canonicalPlace,
+      year: reconstructionMetadata.year,
+      evidenceByLayer: reconstructionMetadata.evidenceByLayer,
+    });
+
+    const artifactData = {
+      place: reconstructionMetadata.canonicalPlace,
+      year: reconstructionMetadata.year,
+      metadata: reconstructionMetadata.reinterpretation,
+      evidence: reconstructionMetadata.evidenceByLayer.bed?.concat(
+        reconstructionMetadata.evidenceByLayer.event || [],
+        reconstructionMetadata.evidenceByLayer.texture || []
+      ) || [],
+      prompts,
+      audioLayers,
+      confidence: reconstructionMetadata.confidence,
+      confidenceScore: reconstructionMetadata.confidenceScore,
+      evidenceNote: reconstructionMetadata.evidenceNote,
+      sourceNotes: reconstructionMetadata.sourceNotes,
+    };
+
+    await tpStoreArtifact(artifactData);
+    
+    updateJobState(job.id, JobState.COMPLETED, { result: artifactData });
+  } catch (e) {
+    updateJobState(job.id, JobState.FAILED, { error: e.message });
+  }
+}
+
+if (method === "GET" && pathname === "/generating") {
     const id = searchParams.get("id") ?? "";
     const place = searchParams.get("place") ?? "";
     const year = searchParams.get("year") ?? "";
@@ -154,57 +198,30 @@ export async function handleRequest({
 
     const finalId = id || (place && year ? generateOpaqueId(place, year) : "");
 
+    let job = null;
     let audioLayers = null;
     let prompts = null;
     let error = null;
     let evidenceData = null;
     let reconstructionMetadata = null;
     let confidence = "high";
+    let jobId = searchParams.get("jobId") ?? "";
+
+    if (!jobId && place && year) {
+      job = createJob({ place, year });
+      jobId = job.id;
+      runGenerationJob(job).then(() => {});
+    } else if (jobId) {
+      job = getJob(jobId);
+    }
 
     if (elIsConfigured()) {
-      try {
-        const placeKey = place.split(",")[0].trim();
-        
-        reconstructionMetadata = generateReconstructionMetadata({ place: placeKey, year: parseInt(year) });
-        
-        confidence = reconstructionMetadata.confidence;
-        const evidenceNote = reconstructionMetadata.evidenceNote;
-
-        prompts = buildPrompts({
-          place: reconstructionMetadata.canonicalPlace,
-          year: reconstructionMetadata.year,
-          evidenceByLayer: reconstructionMetadata.evidenceByLayer,
-        });
-
-        audioLayers = await generateSoundscape({
-          place: reconstructionMetadata.canonicalPlace,
-          year: reconstructionMetadata.year,
-          evidenceByLayer: reconstructionMetadata.evidenceByLayer,
-        });
-
-        const artifactData = {
-          place: reconstructionMetadata.canonicalPlace,
-          year: reconstructionMetadata.year,
-          metadata: reconstructionMetadata.reinterpretation,
-          evidence: reconstructionMetadata.evidenceByLayer.bed?.concat(
-            reconstructionMetadata.evidenceByLayer.event || [],
-            reconstructionMetadata.evidenceByLayer.texture || []
-          ) || [],
-          prompts,
-          audioLayers,
-          confidence,
-          confidenceScore: reconstructionMetadata.confidenceScore,
-          evidenceNote: reconstructionMetadata.evidenceNote,
-          sourceNotes: reconstructionMetadata.sourceNotes,
-        };
-
-        if (tpIsConfigured()) {
-          await tpStoreArtifact(artifactData);
-        } else {
-          await tpStoreArtifact(artifactData);
-        }
-      } catch (e) {
-        error = e.message;
+      if (job && job.state === JobState.COMPLETED && job.result) {
+        audioLayers = job.result.audioLayers;
+        prompts = job.result.prompts;
+        confidence = job.result.confidence;
+      } else if (job && job.state === JobState.FAILED) {
+        error = job.error;
       }
     }
 
@@ -213,6 +230,7 @@ export async function handleRequest({
     if (place) params.set("place", place);
     if (year) params.set("year", year);
     if (note) params.set("note", note);
+    if (jobId) params.set("jobId", jobId);
     if (audioLayers) params.set("generated", "true");
     if (error) params.set("error", error);
     if (reconstructionMetadata) params.set("confidence", reconstructionMetadata.confidence);
@@ -222,7 +240,7 @@ export async function handleRequest({
     return {
       status: 200,
       headers: { "content-type": "text/html; charset=utf-8" },
-      body: renderGenerating({ place, year, redirectTo: artifactUrl }),
+      body: renderGenerating({ place, year, redirectTo: artifactUrl, jobId }),
     };
   }
 
@@ -408,6 +426,42 @@ export async function handleRequest({
         newVersion,
         mode: force ? "forced" : "incremental",
       }, null, 2),
+    };
+  }
+
+  if (method === "GET" && pathname === "/job/status") {
+    const jobId = searchParams.get("id") ?? "";
+    
+    if (!jobId) {
+      return {
+        status: 400,
+        headers: { "content-type": "application/json; charset=utf-8" },
+        body: JSON.stringify({ error: "job id required" }),
+      };
+    }
+    
+    const job = getJob(jobId);
+    if (!job) {
+      return {
+        status: 404,
+        headers: { "content-type": "application/json; charset=utf-8" },
+        body: JSON.stringify({ error: "job not found" }),
+      };
+    }
+    
+    return {
+      status: 200,
+      headers: { "content-type": "application/json; charset=utf-8" },
+      body: JSON.stringify({
+        id: job.id,
+        state: job.state,
+        place: job.place,
+        year: job.year,
+        result: job.result,
+        error: job.error,
+        createdAt: job.createdAt,
+        updatedAt: job.updatedAt,
+      }),
     };
   }
 

@@ -48,7 +48,6 @@ test("E2E: generating page shows loading state then redirects to artifact", asyn
   assert.equal(response.status, 200);
   assert.match(response.body, /Preparing your seance/);
   assert.match(response.body, /reconstruct/);
-  assert.match(response.body, /meta http-equiv="refresh"/);
 });
 
 test("E2E: artifact page shows playable artifact with place and year", async () => {

@@ -1,7 +1,45 @@
 import { sharedStyles } from "./shared-styles.js";
 
-export function renderGenerating({ place, year, redirectTo = null }) {
+export function renderGenerating({ place, year, redirectTo = null, jobId = null, stage = "Gathering historical evidence" }) {
   const redirectUrl = redirectTo ?? `/artifact?place=${encodeURIComponent(place)}&year=${encodeURIComponent(year)}`;
+  
+  const pollScript = jobId ? `
+    <script>
+      (function() {
+        var jobId = "${jobId}";
+        var redirectUrl = "${redirectUrl}";
+        var maxAttempts = 30;
+        var attempts = 0;
+        
+        function checkStatus() {
+          fetch("/job/status?id=" + jobId)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              attempts++;
+              if (data.state === "completed") {
+                window.location.href = redirectUrl + "&generated=true";
+              } else if (data.state === "failed") {
+                window.location.href = redirectUrl + "&error=" + encodeURIComponent(data.error || "generation failed");
+              } else if (attempts >= maxAttempts) {
+                window.location.href = redirectUrl;
+              } else {
+                var stageEl = document.getElementById("progress-stage");
+                if (data.state === "processing") {
+                  stageEl.textContent = "Generating audio layers...";
+                }
+                setTimeout(checkStatus, 2000);
+              }
+            })
+            .catch(function() {
+              setTimeout(checkStatus, 2000);
+            });
+        }
+        
+        setTimeout(checkStatus, 1500);
+      })();
+    </script>
+  ` : `<meta http-equiv="refresh" content="3;url=${redirectUrl}" />`;
+  
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -71,7 +109,7 @@ ${sharedStyles()}
         text-align: center;
       }
     </style>
-    <meta http-equiv="refresh" content="3;url=${redirectUrl}" />
+    ${pollScript}
   </head>
   <body>
     <main>
@@ -86,7 +124,7 @@ ${sharedStyles()}
           <span class="spinner-dot"></span>
         </div>
         <p class="progress-label">This may take a moment</p>
-        <p class="progress-stage">Gathering historical evidence</p>
+        <p class="progress-stage" id="progress-stage">${stage}</p>
       </section>
     </main>
   </body>
