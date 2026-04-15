@@ -95,3 +95,14 @@ Prevents duplicate generations for same place-year:
 - Concurrent requests return existing job
 - Waiting requests resolve to same artifact
 - Lock clears on completion/failure
+
+## Rate Limiting
+
+Protects the generation path from abuse while keeping archive retrieval unlimited:
+
+- **Generation limit**: 5 fresh generations per minute per unique query
+- **Archive limit**: Unlimited - cached artifacts always available
+- **Cooldown**: 30 second cooldown after hitting limit
+- **Response**: 429 status with retry-after header and clear error message
+
+The rate limiter uses an in-memory sliding window per identifier and cleans old entries automatically.

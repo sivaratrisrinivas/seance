@@ -14,6 +14,7 @@ import { buildPrompts } from "./prompt-builder.js";
 import { extractEvidence, getEvidenceSummary } from "./evidence-extractor.js";
 import { generateReconstructionMetadata, getReconstructionSummary } from "./reconstruction-metadata.js";
 import { createJob, getJob, getInFlightJob, JobState, updateJobState } from "./generation-job.js";
+import { checkRateLimit } from "./rate-limiter.js";
 
 const AMBIGUOUS_PLACES = {
   Springfield: ["Springfield, Missouri", "Springfield, Illinois"],
@@ -117,6 +118,26 @@ export async function handleRequest({
           location: artifactUrl,
         },
         body: `Redirecting to ${artifactUrl}`,
+      };
+    }
+
+    const rateLimitCheck = checkRateLimit({
+      identifier: `${validation.place}:${validation.year}`,
+      type: "generation",
+    });
+    if (!rateLimitCheck.allowed) {
+      return {
+        status: 429,
+        headers: { 
+          "content-type": "text/html; charset=utf-8",
+          "retry-after": String(rateLimitCheck.retryAfter),
+        },
+        body: renderValidationError({
+          ok: false,
+          place: validation.place,
+          year: validation.year,
+          message: rateLimitCheck.reason,
+        }),
       };
     }
 
