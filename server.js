@@ -6,16 +6,27 @@ import { handleRequest } from "./src/handle-request.js";
 export { handleRequest };
 
 export function createServer() {
-  return http.createServer((request, response) => {
+  return http.createServer(async (request, response) => {
     const url = new URL(
       request.url ?? "/",
       `http://${request.headers.host ?? "localhost"}`,
     );
-    const result = handleRequest({
-      method: request.method ?? "GET",
-      pathname: url.pathname,
-      searchParams: url.searchParams,
-    });
+    let result;
+    try {
+      result = await handleRequest({
+        method: request.method ?? "GET",
+        pathname: url.pathname,
+        searchParams: url.searchParams,
+      });
+    } catch (e) {
+      console.error('Handler error:', e.message);
+      result = { status: 500, headers: {}, body: "Internal Error" };
+    }
+    
+    if (!result || result.status === undefined) {
+      console.error('Invalid result for', request.url, result);
+      result = { status: 500, headers: {}, body: "Handler returned invalid result" };
+    }
 
     response.writeHead(result.status, result.headers);
     response.end(result.body);
