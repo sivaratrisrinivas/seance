@@ -17,7 +17,7 @@ export function renderGenerating({ place, year, redirectTo = null, jobId = null,
             .then(function(data) {
               attempts++;
               if (data.state === "completed") {
-                window.location.href = redirectUrl + "&generated=true";
+                window.location.href = redirectUrl + "&generated=true&jobId=" + jobId;
               } else if (data.state === "failed") {
                 window.location.href = redirectUrl + "&error=" + encodeURIComponent(data.error || "generation failed");
               } else if (attempts >= maxAttempts) {

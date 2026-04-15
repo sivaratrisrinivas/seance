@@ -286,6 +286,9 @@ if (method === "GET" && pathname === "/generating") {
     const archived = searchParams.get("archived") === "true";
     const generated = searchParams.get("generated") === "true";
     const error = searchParams.get("error") ?? "";
+    const jobId = searchParams.get("jobId") ?? "";
+    let artifactJob = null;
+    let audioLayersFromJob = null;
 
     if (id && !place && !year) {
       const decoded = atob(id);
@@ -311,7 +314,15 @@ if (method === "GET" && pathname === "/generating") {
       ? { reinterpreted: true, note: note }
       : null;
 
-    const audioLayers = artifactData?.audio_layers ? JSON.parse(artifactData.audio_layers) : null;
+    if (jobId) {
+      artifactJob = getJob(jobId);
+      if (artifactJob && artifactJob.state === JobState.COMPLETED && artifactJob.result?.audioLayers) {
+        audioLayersFromJob = artifactJob.result.audioLayers;
+        confidence = artifactJob.result.confidence || confidence;
+      }
+    }
+
+    const audioLayers = audioLayersFromJob || (artifactData?.audio_layers ? JSON.parse(artifactData.audio_layers) : null);
     const partial = audioLayers?.isPartial === true;
 
     return {
