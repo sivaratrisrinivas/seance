@@ -1,125 +1,199 @@
 # Séance
 
-A web app that lets you hear what a place sounded like in a past year.
+> **Hear a place the way history felt.**
 
-## What
+A web app that reconstructs the ambient soundscape of any place at any point in history using AI-generated audio. Built for the [ElevenLabs Worldwide Hackathon](https://hacks.elevenlabs.io/hackathons/3).
 
-Type a place and year, then hear a three-layer soundscape reconstruction of that place at that time. The audio combines:
+---
 
-- **Bed** - ambient background sound
-- **Event** - recurring sounds that shape a place
-- **Texture** - subtle environmental details
+## What It Does
 
-Every reconstruction is stored so repeat visits load instantly from the archive.
+Type a place and year — Séance reconstructs a three-layer audio experience of what that place sounded like:
 
-## Why
+| Layer | Purpose | Example |
+|-------|---------|---------|
+| **Bed** | Ambient background drone | Wind through temple corridors, ocean hum |
+| **Event** | Recurring human/mechanical sounds | Rickshaw bells, market chatter, factory whistles |
+| **Texture** | Subtle environmental detail | Rain on cobblestone, insect chorus, distant thunder |
 
-People can read about the past, but they can't hear it. This app brings historical places to life through sound using AI generation and persistent storage.
+Every reconstruction is stored in Turbopuffer, so repeat visits load instantly from the archive.
 
-## How
+## How It Works
 
-1. **Evidence extraction** - Uses pre-researched historical sources to build evidence for each place-year
-2. **Prompt building** - Converts evidence into constrained AI prompts that avoid modern sounds or dramatic scoring
-3. **AI generation** - Creates three audio layers using ElevenLabs Sound Effects API
-4. **Storage** - Saves artifacts to Turbopuffer for instant retrieval on repeat visits
-5. **Playback** - Renders a playable audio experience with trust indicators showing evidence confidence
+```
+User Input → Validation → Evidence Extraction → Normalization → Soundscape Planning
+                                                                        ↓
+                    Artifact Page ← Storage ← Audio Generation ← Prompt Building
+```
 
-### Tech
+1. **Evidence extraction** — Looks up pre-researched historical sources for each place-year combination, with Gemini API fallback for unknown queries
+2. **Normalization** — Structures raw evidence into typed fragments (bed/event/texture) with confidence scores via Gemini
+3. **Soundscape planning** — Plans layer durations, prompts, and event timing via Gemini
+4. **Prompt building** — Converts plans into constrained prompts that avoid modern sounds or dramatic scoring
+5. **Audio generation** — Creates three audio layers using ElevenLabs Sound Effects API
+6. **Storage** — Saves artifacts to Turbopuffer for instant retrieval; large audio blobs overflow to Cloudflare R2
+7. **Playback** — Renders a mixable audio experience with trust indicators showing evidence confidence
 
-- Node.js (no framework, plain HTTP server)
-- ElevenLabs Sound Effects API for audio generation
-- Turbopuffer for artifact storage
-- In-memory fallback when APIs not configured
+### Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| Server | Node.js (plain HTTP, no framework) |
+| Audio Generation | [ElevenLabs Sound Effects API](https://elevenlabs.io/docs/eleven-api/guides/cookbooks/sound-effects) |
+| Vector Storage | [Turbopuffer](https://turbopuffer.com/docs) |
+| Audio Overflow | [Cloudflare R2](https://developers.cloudflare.com/r2/get-started/) |
+| Evidence Fallback | Google Gemini API |
+| Frontend | Vanilla HTML/CSS/JS, Web Audio API |
 
 ## Setup
 
-Create `.env` with your API keys:
-
-```
-ELEVENLABS_API_KEY=your_key_here
-TURBOPUFFER_API_KEY=your_key_here
-TURBOPUFFER_NAMESPACE=seance-artifacts
-```
-
-## Run
+### 1. Install dependencies
 
 ```bash
 npm install
-npm test   # Run tests
-npm start  # Start server on port 8000
 ```
 
-## Files
+### 2. Configure environment
 
-- `server.js` - HTTP server entry point
-- `src/handle-request.js` - Request routing
-- `src/elevenlabs-client.js` - Audio generation
-- `src/turbopuffer-client.js` - Artifact storage
-- `src/evidence-extractor.js` - Historical evidence lookup
-- `src/reconstruction-metadata.js` - Structured metadata builder
-- `src/prompt-builder.js` - Prompt generation for AI
-- `src/query-validation.js` - Query input validation
-- `src/render-*.js` - Page templates
+Create a `.env` file:
 
-## Safety
+```bash
+# Required: Audio generation
+ELEVENLABS_API_KEY=your_key_here
+
+# Required: Artifact storage
+TURBOPUFFER_API_KEY=your_key_here
+TURBOPUFFER_NAMESPACE=seance-artifacts
+
+# Optional: Gemini for evidence fallback & normalization
+GOOGLE_API_KEY=your_key_here
+
+# Optional: Cloudflare R2 for audio overflow (avoids Turbopuffer 8MiB limit)
+R2_ACCOUNT_ID=your_account_id
+R2_ACCESS_KEY_ID=your_access_key
+R2_SECRET_ACCESS_KEY=your_secret_key
+R2_BUCKET_NAME=seance-audio
+R2_PUBLIC_URL=https://your-domain.com/audio
+```
+
+### 3. Run
+
+```bash
+npm start            # Start server on port 8000
+npm test             # Run all 116 tests
+npm run dev          # Start with file watching (if configured)
+```
+
+## Project Structure
+
+```
+seance/
+├── server.js                      # HTTP server entry point
+├── src/
+│   ├── handle-request.js          # Request router & pipeline orchestrator
+│   ├── query-validation.js        # Input validation (place, year)
+│   ├── evidence-extractor.js      # Historical evidence lookup
+│   ├── reconstruction-metadata.js # Gemini fallback for unknown places
+│   ├── normalize-evidence.js      # Evidence → typed fragments (async, Gemini)
+│   ├── plan-soundscape.js         # Fragments → layer plan (async, Gemini)
+│   ├── prompt-builder.js          # Plan → ElevenLabs prompts
+│   ├── generate-layers.js         # ElevenLabs API + R2 upload
+│   ├── gemini-client.js           # Google Gemini API client
+│   ├── turbopuffer-client.js      # Turbopuffer storage client
+│   ├── generation-job.js          # Job state machine + single-flight
+│   ├── rate-limiter.js            # Sliding window rate limiter
+│   ├── place-reinterpretation.js  # Anachronistic place name handling
+│   ├── artifact-store.js          # In-memory artifact provenance store
+│   ├── render-homepage.js         # Homepage template
+│   ├── render-generating.js       # Generation progress template
+│   ├── render-artifact.js         # Artifact playback template
+│   ├── render-how-it-works.js     # How it works template
+│   ├── render-disambiguation.js   # Place disambiguation template
+│   ├── render-validation-error.js # Validation error template
+│   └── shared-styles.js           # Design system (dark theme)
+└── test/
+    ├── homepage.test.js           # Homepage rendering (8 tests)
+    ├── how-it-works.test.js       # How-it-works page (5 tests)
+    ├── year-validation.test.js    # Query validation (10 tests)
+    ├── moderation.test.js         # Sensitive period moderation (3 tests)
+    ├── anachronistic-place.test.js# Evidence + disambiguation (11 tests)
+    ├── prompt-builder.test.js     # Normalize → Plan → Prompt (12 tests)
+    ├── async-jobs.test.js         # Job state machine (10 tests)
+    ├── ritual-flow-e2e.test.js    # Full user journey E2E (17 tests)
+    ├── ritual-loading.test.js     # Routing + artifact display (14 tests)
+    ├── archive-hit-e2e.test.js    # Archive retrieval (4 tests)
+    ├── archive-write.test.js      # Artifact store + provenance (8 tests)
+    ├── partial-artifact.test.js   # Partial generation handling (7 tests)
+    ├── playback.test.js           # Audio player rendering (4 tests)
+    ├── rate-limit.test.js         # Rate limiting (4 tests)
+    └── recent-queries.test.js     # localStorage history (4 tests)
+```
+
+## Pipeline Architecture
+
+The generation pipeline runs as an async background job with the following stages:
+
+| Stage | Description | Module |
+|-------|-------------|--------|
+| `PENDING` | Job created, awaiting start | `generation-job.js` |
+| `EVIDENCE` | Extracting historical evidence | `evidence-extractor.js` → `reconstruction-metadata.js` |
+| `NORMALIZING` | Structuring evidence fragments | `normalize-evidence.js` |
+| `PLANNING` | Planning soundscape layers | `plan-soundscape.js` |
+| `PROMPTS` | Building generation prompts | `prompt-builder.js` |
+| `GENERATING` | Calling ElevenLabs API | `generate-layers.js` |
+| `STORING` | Saving to Turbopuffer/R2 | `turbopuffer-client.js` |
+| `COMPLETED` | Artifact ready for playback | — |
+
+The `/generating` page polls job status and shows real-time stage progress.
+
+## Safety & Moderation
 
 The system implements narrow moderation to handle hard history responsibly:
 
-- **Input moderation**: Blocks generic conflict-zone place names (WarZone, UnknownConflict) during sensitive periods (1914-1945) when no evidence exists in the system
-- **Output moderation**: Prompts include safety constraints ("no graphic description, not violent or exploitative") for sensitive historical periods
-- Places with evidence (London 1940, Tokyo 1945, etc.) remain fully available
+- **Input moderation** — Blocks generic conflict-zone place names during sensitive periods (1914–1945) when no evidence exists
+- **Output moderation** — Prompts include safety constraints ("no graphic description, not violent or exploitative") for sensitive periods
+- **Evidence-grounded** — Places with actual evidence (London 1940, Tokyo 1945) remain fully available
 
-## Degradation
+## Graceful Degradation
 
-The system handles partial generation gracefully:
+| Scenario | Behavior |
+|----------|----------|
+| No ElevenLabs key | Server starts, audio generation skipped, shows empty player |
+| No Turbopuffer key | Falls back to in-memory storage |
+| No Gemini key | Uses hardcoded evidence only, skips normalization/planning |
+| No R2 credentials | Audio stored as base64 in Turbopuffer directly |
+| 2 of 3 layers fail | Artifact marked "Partial reconstruction" |
+| All layers fail | Job fails, error shown to user |
 
-- **Layer tracking**: Each audio layer (bed, event, texture) tracks individual success/failure
-- **Threshold**: At least 2 layers must succeed; fewer throws an error
-- **Partial artifacts**: When 2+ layers succeed but not all 3, artifact is marked partial
-- **Partial UI**: Shows "Partial reconstruction" note with layer availability
+## Single-Flight Deduplication
 
-## Async Jobs
+Prevents duplicate generations for the same place-year:
 
-Generation runs as background jobs:
-
-- Job states: PENDING, EVIDENCE, PROMPTS, GENERATING, STORING, COMPLETED, FAILED
-- Named stages displayed in UI at each step
-- Job endpoint: GET `/job/status?id=job_xxx` returns JSON state + stage
-- Generating page polls job status and updates stage text
-
-## Single-Flight
-
-Prevents duplicate generations for same place-year:
-
-- In-flight job tracking by place:year key
-- Concurrent requests return existing job
-- Waiting requests resolve to same artifact
-- Lock clears on completion/failure
+- In-flight job tracking by `place:year` lock key
+- Concurrent requests reuse the existing job
+- Lock auto-clears on completion or failure
 
 ## Rate Limiting
 
-Protects the generation path from abuse while keeping archive retrieval unlimited:
+- **Generation**: 5 fresh generations per minute per unique query
+- **Archive**: Unlimited — cached artifacts always available
+- **Cooldown**: 30-second cooldown after hitting the limit
+- **Response**: 429 status with clear error message
 
-- **Generation limit**: 5 fresh generations per minute per unique query
-- **Archive limit**: Unlimited - cached artifacts always available
-- **Cooldown**: 30 second cooldown after hitting limit
-- **Response**: 429 status with retry-after header and clear error message
+## Tests
 
-The rate limiter uses an in-memory sliding window per identifier and cleans old entries automatically.
+```
+116 passing, 0 failing
+```
 
-## Server-Side Playback
+Run the full suite:
 
-The artifact page plays audio directly without client-side layer mixing:
+```bash
+npm test
+```
 
-- **Audio storage**: Generated audio (base64) stored in Turbopuffer for archived playback
-- **Client playback**: Web Audio API decodes embedded base64 audio on page load
-- **Repeat visits**: Archived artifacts are playable immediately without regeneration
+Tests cover every pipeline step end-to-end: validation → evidence → normalization → planning → prompts → generation → storage → rendering → playback.
 
-## Place Reinterpretation
+## License
 
-Handles anachronistic queries where modern place names didn't exist:
-
-- **Modern names**: "Berlin 1870" triggers geographic reinterpretation
-- **Historical context**: Shows "(formerly [historical name])" in UI
-- **Evidence preserved**: Uses historical place for evidence lookup
-- **Trust indicator**: Shows "Reconstructed" note for reinterpreted queries
+MIT

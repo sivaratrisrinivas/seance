@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { renderArtifact } from "../src/render-artifact.js";
 
-test("renderArtifact shows partial note when partial flag is true", () => {
+test("renderArtifact shows Partial reconstruction note when partial=true", () => {
   const html = renderArtifact({
     place: "London",
     year: "1940",
@@ -12,10 +12,11 @@ test("renderArtifact shows partial note when partial flag is true", () => {
     audioLayers: { isPartial: true },
   });
 
-  assert.match(html, /partial/i, "Should show partial status for partial artifact");
+  assert.match(html, /Partial reconstruction/i);
+  assert.match(html, /Some audio layers unavailable/i);
 });
 
-test("renderArtifact does not show partial note when partial is false", () => {
+test("renderArtifact does not show partial note when partial=false", () => {
   const html = renderArtifact({
     place: "London",
     year: "1940",
@@ -24,11 +25,10 @@ test("renderArtifact does not show partial note when partial is false", () => {
     audioLayers: { isPartial: false },
   });
 
-  const hasPartialNote = /Partial reconstruction/i.test(html);
-  assert.equal(hasPartialNote, false, "Should not show partial note");
+  assert.doesNotMatch(html, /Partial reconstruction/i);
 });
 
-test("renderArtifact accepts partial parameter in API", () => {
+test("renderArtifact includes place and year in output", () => {
   const html = renderArtifact({
     place: "Tokyo",
     year: "1945",
@@ -38,11 +38,11 @@ test("renderArtifact accepts partial parameter in API", () => {
     audioLayers: { bed: "abc", event: "def", texture: "ghi", isPartial: true },
   });
 
-  assert.match(html, /partial/i);
-  assert.match(html, /Tokyo.*1945/);
+  assert.match(html, /Tokyo/);
+  assert.match(html, /1945/);
 });
 
-test("renderArtifact shows trust line for partial artifacts", () => {
+test("renderArtifact shows Recovered badge for archived artifacts", () => {
   const html = renderArtifact({
     place: "London",
     year: "1940",
@@ -51,5 +51,37 @@ test("renderArtifact shows trust line for partial artifacts", () => {
     audioLayers: { isPartial: true },
   });
 
-  assert.match(html, /trust-line/i);
+  assert.match(html, /Recovered from prior reconstruction/);
+});
+
+test("renderArtifact shows Freshly summoned for generated artifacts", () => {
+  const html = renderArtifact({
+    place: "London",
+    year: "1940",
+    generated: true,
+    partial: false,
+  });
+
+  assert.match(html, /Freshly summoned/);
+});
+
+test("renderArtifact shows Audio layers not available when no audio", () => {
+  const html = renderArtifact({
+    place: "London",
+    year: "1940",
+  });
+
+  assert.match(html, /Audio layers not available/);
+});
+
+test("renderArtifact shows player section with mixer when audio exists", () => {
+  const html = renderArtifact({
+    place: "London",
+    year: "1940",
+    audioLayers: { bed: "base64data", event: "base64data", texture: "base64data" },
+  });
+
+  assert.match(html, /player-section/);
+  assert.match(html, /mode-selector/);
+  assert.match(html, /mixer-slider/);
 });

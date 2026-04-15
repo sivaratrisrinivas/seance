@@ -48,6 +48,8 @@ function getPlaceContext(place) {
   return PLACE_CONTEXT[key] || { region: "Unknown", culture: "International", period: "Historical" };
 }
 
+export { getPlaceContext };
+
 function extractEvidenceByLayer(evidence) {
   const bed = [];
   const event = [];

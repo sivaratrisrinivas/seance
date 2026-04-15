@@ -10,10 +10,14 @@ import { resolvePlaceForYear, needsReinterpretation } from "./place-reinterpreta
 import { storeArtifact as tpStoreArtifact, getArtifact as tpGetArtifact, isConfigured as tpIsConfigured } from "./turbopuffer-client.js";
 import { isArchived } from "./artifact-store.js";
 import { generateSoundscape, isConfigured as elIsConfigured } from "./elevenlabs-client.js";
+import { generateLayers } from "./generate-layers.js";
 import { buildPrompts } from "./prompt-builder.js";
 import { extractEvidence, getEvidenceSummary } from "./evidence-extractor.js";
+import { normalizeEvidence, coerceNormalizedEvidence } from "./normalize-evidence.js";
+import { planSoundscape, coerceSoundscapePlan, buildFallbackSoundscapePlan } from "./plan-soundscape.js";
+import { generateEvidenceFromGemini, parseEvidenceFromGeminiResponse, isConfigured as geminiIsConfigured } from "./gemini-client.js";
 import { generateReconstructionMetadata, getReconstructionSummary } from "./reconstruction-metadata.js";
-import { createJob, getJob, getInFlightJob, JobState, updateJobState } from "./generation-job.js";
+import { createJob, getJob, getInFlightJob, JobState, updateJobState, setInFlightJob } from "./generation-job.js";
 import { checkRateLimit } from "./rate-limiter.js";
 
 const AMBIGUOUS_PLACES = {
@@ -78,10 +82,12 @@ export async function handleRequest({
       };
     }
 
-    const evidenceCheck = extractEvidence({
+    let evidenceCheck = extractEvidence({
       place: validation.place,
       year: validation.year,
     });
+    console.log(`[PIPELINE] /ritual: Extracted ${evidenceCheck.evidence?.length || 0} evidence items for ${validation.place}, ${validation.year} (confidence: ${evidenceCheck.confidence})`);
+    
     if (evidenceCheck.blocked) {
       return {
         status: 422,
@@ -96,6 +102,7 @@ export async function handleRequest({
     }
 
     const placeKey = validation.place.split(",")[0].trim();
+
     if (AMBIGUOUS_PLACES[placeKey]) {
       const disambigUrl = `/disambiguate?place=${encodeURIComponent(placeKey)}&year=${encodeURIComponent(validation.year)}`;
       return {
@@ -107,10 +114,35 @@ export async function handleRequest({
         body: `Redirecting to ${disambigUrl}`,
       };
     }
+    
+    if ((evidenceCheck.evidence?.length === 0 || evidenceCheck.confidence === "low" || evidenceCheck.confidence === "medium") && geminiIsConfigured()) {
+      try {
+        console.log(`[PIPELINE] /ritual: Calling Gemini for evidence...`);
+        const geminiPrompt = `${placeKey} in ${validation.year}. Provide sensory-rich historical fragments about the soundscape: ambient sounds, human activity, mechanical/industrial, nature, intermittent events, and specific sound events.`;
+        const geminiResponse = await generateEvidenceFromGemini({
+          place: placeKey,
+          year: validation.year,
+          textFragments: [geminiPrompt],
+        });
+        const parsedEvidence = parseEvidenceFromGeminiResponse(geminiResponse);
+        if (parsedEvidence?.length > 0) {
+          console.log(`[PIPELINE] /ritual: Gemini generated ${parsedEvidence.length} evidence items`);
+          evidenceCheck = {
+            evidence: parsedEvidence,
+            confidence: "gemini",
+            note: "Evidence generated from Google Gemini AI",
+          };
+        }
+      } catch (geminiError) {
+        console.warn("Gemini evidence extraction failed:", geminiError.message);
+      }
+    }
 
     const existingArtifact = await tpGetArtifact(validation.place, validation.year);
+    console.log(`[PIPELINE] /ritual: Checking for existing artifact in turbopuffer: ${existingArtifact ? "found" : "not found"}`);
     if (existingArtifact && existingArtifact.audio_layers) {
       const artifactUrl = `/artifact?place=${encodeURIComponent(validation.place)}&year=${encodeURIComponent(validation.year)}&archived=true`;
+      console.log(`[PIPELINE] /ritual: Found existing artifact with audio, redirecting to /artifact (ARCHIVE HIT)`);
       return {
         status: 302,
         headers: {
@@ -151,13 +183,8 @@ export async function handleRequest({
 
     const opaqueId = generateOpaqueId(finalPlace, validation.year);
 
-    await tpStoreArtifact({
-      place: finalPlace,
-      year: validation.year,
-      metadata: { reinterpretation: reinterpretation.reinterpreted ? reinterpretation : null },
-    });
-
     const generatingUrl = `/generating?id=${opaqueId}&place=${encodeURIComponent(validation.place)}&year=${encodeURIComponent(validation.year)}${reinterpretNote}`;
+    console.log(`[PIPELINE] /ritual: No artifact found, redirecting to /generating (FRESH GENERATION)`);
     return {
       status: 302,
       headers: {
@@ -170,49 +197,141 @@ export async function handleRequest({
 
   async function runGenerationJob(job) {
   updateJobState(job.id, JobState.EVIDENCE);
+  console.log(`[PIPELINE] /generating: Job ${job.id} started for ${job.place}, ${job.year}`);
   
   try {
     const placeKey = job.place.split(",")[0].trim();
-    const reconstructionMetadata = generateReconstructionMetadata({ place: placeKey, year: parseInt(job.year) });
-    
+    console.log(`[PIPELINE] /generating: Job ${job.id} - EVIDENCE phase: Calling generateReconstructionMetadata...`);
+    const reconstructionMetadata = await generateReconstructionMetadata({ 
+      place: placeKey, 
+      year: parseInt(job.year),
+      preExtractedEvidence: job.preExtractedEvidence,
+    });
+    console.log(`[PIPELINE] /generating: Job ${job.id} - EVIDENCE phase: Got ${reconstructionMetadata.evidenceCount} evidence items, confidence: ${reconstructionMetadata.confidence}`);
+
+    const allEvidence = [
+      ...(reconstructionMetadata.evidenceByLayer.bed || []),
+      ...(reconstructionMetadata.evidenceByLayer.event || []),
+      ...(reconstructionMetadata.evidenceByLayer.texture || []),
+    ];
+
+    updateJobState(job.id, "NORMALIZING");
+    console.log(`[PIPELINE] /generating: Job ${job.id} - NORMALIZE phase: Normalizing evidence...`);
+    const normalizedEvidence = await normalizeEvidence({
+      place: reconstructionMetadata.canonicalPlace,
+      year: reconstructionMetadata.year,
+      rawEvidence: allEvidence,
+      confidence: reconstructionMetadata.confidence,
+    });
+    console.log(`[PIPELINE] /generating: Job ${job.id} - NORMALIZE phase: Normalized (confidence: ${normalizedEvidence.confidence}, fragments: ${normalizedEvidence.evidenceFragments?.length || 0})`);
+
+    updateJobState(job.id, "PLANNING");
+    console.log(`[PIPELINE] /generating: Job ${job.id} - PLAN phase: Planning soundscape...`);
+    const soundscapePlan = await planSoundscape({
+      normalizedEvidence,
+      place: reconstructionMetadata.canonicalPlace,
+      year: reconstructionMetadata.year,
+    });
+    console.log(`[PIPELINE] /generating: Job ${job.id} - PLAN phase: Planned (bed: ${soundscapePlan.bed?.prompt?.slice(0, 40)}..., events: ${soundscapePlan.events?.length || 0})`);
+
     updateJobState(job.id, JobState.PROMPTS);
+    console.log(`[PIPELINE] /generating: Job ${job.id} - PROMPTS phase: Building generation prompts...`);
     
     const prompts = buildPrompts({
       place: reconstructionMetadata.canonicalPlace,
       year: reconstructionMetadata.year,
       evidenceByLayer: reconstructionMetadata.evidenceByLayer,
     });
+    console.log(`[PIPELINE] /generating: Job ${job.id} - PROMPTS phase: Prompts built (bed: ${prompts.bed?.slice(0, 50)}...)`);
 
     updateJobState(job.id, JobState.GENERATING);
+    console.log(`[PIPELINE] /generating: Job ${job.id} - GENERATING phase: Calling ElevenLabs for layered audio...`);
     
-    const audioLayers = await generateSoundscape({
+    const audioLayers = await generateLayers({
+      soundscapePlan,
       place: reconstructionMetadata.canonicalPlace,
       year: reconstructionMetadata.year,
-      evidenceByLayer: reconstructionMetadata.evidenceByLayer,
     });
+    console.log(`[PIPELINE] /generating: Job ${job.id} - GENERATING phase: Audio generated (isMock: ${audioLayers.isMock}, hasAudio: ${!!audioLayers.bed}, events: ${audioLayers.events?.length || 0})`);
 
     const artifactData = {
       place: reconstructionMetadata.canonicalPlace,
       year: reconstructionMetadata.year,
+      version: 2,
+      schemaVersion: 2,
+      placeInput: job.place,
+      yearInput: job.year,
+      resolvedPlace: reconstructionMetadata.canonicalPlace,
+      resolvedYear: reconstructionMetadata.year,
+      interpretationNote: reconstructionMetadata.reinterpretation?.note || "",
+      evidenceQuality: normalizedEvidence.evidence_quality || (reconstructionMetadata.confidence === "high" ? "strong" : reconstructionMetadata.confidence === "medium" ? "moderate" : "weak"),
       metadata: reconstructionMetadata.reinterpretation,
-      evidence: reconstructionMetadata.evidenceByLayer.bed?.concat(
-        reconstructionMetadata.evidenceByLayer.event || [],
-        reconstructionMetadata.evidenceByLayer.texture || []
-      ) || [],
+      rawEvidence: {
+        provider: "gemini",
+        payload: {
+          query: { place_input: job.place, year_input: job.year },
+          resolved: {
+            place: reconstructionMetadata.canonicalPlace,
+            year: reconstructionMetadata.year,
+            historical_aliases: [],
+            interpretation_note: reconstructionMetadata.reinterpretation?.note || "",
+          },
+          confidence: normalizedEvidence.confidence,
+          evidence_quality: normalizedEvidence.evidence_quality || "moderate",
+          evidence_fragments: normalizedEvidence.evidenceFragments || [],
+          dominant_sounds: normalizedEvidence.dominantSounds || [],
+          background_textures: normalizedEvidence.backgroundTextures || [],
+          intermittent_events: normalizedEvidence.intermittentEvents || [],
+          human_activity: normalizedEvidence.humanActivity || [],
+          atmosphere: normalizedEvidence.atmosphere || [],
+          time_of_day: normalizedEvidence.timeOfDay || "unknown",
+          density: normalizedEvidence.density || "moderate",
+          emotional_tone: normalizedEvidence.emotionalTone || [],
+          reliability_notes: normalizedEvidence.reliabilityNotes || [],
+          gaps: normalizedEvidence.gaps || [],
+        },
+      },
+      normalizedEvidence: {
+        evidence_fragments: normalizedEvidence.evidenceFragments || [],
+        dominant_sounds: normalizedEvidence.dominantSounds || [],
+        background_textures: normalizedEvidence.backgroundTextures || [],
+        intermittent_events: normalizedEvidence.intermittentEvents || [],
+        human_activity: normalizedEvidence.humanActivity || [],
+        atmosphere: normalizedEvidence.atmosphere || [],
+        time_of_day: normalizedEvidence.timeOfDay || "unknown",
+        density: normalizedEvidence.density || "moderate",
+        emotional_tone: normalizedEvidence.emotionalTone || [],
+        reliability_notes: normalizedEvidence.reliabilityNotes || [],
+        gaps: normalizedEvidence.gaps || [],
+      },
+      soundscapePlan,
+      evidence: allEvidence,
       prompts,
-      audioLayers,
-      confidence: reconstructionMetadata.confidence,
+      audioLayers: {
+        bed: audioLayers.bed,
+        event: audioLayers.human,
+        texture: audioLayers.texture,
+        isMock: audioLayers.isMock,
+        isPartial: audioLayers.isPartial,
+      },
+      audioLayersExtended: audioLayers,
+      summary: soundscapePlan.summary,
+      confidence: normalizedEvidence.confidence || reconstructionMetadata.confidenceScore || 0.7,
       confidenceScore: reconstructionMetadata.confidenceScore,
       evidenceNote: reconstructionMetadata.evidenceNote,
       sourceNotes: reconstructionMetadata.sourceNotes,
+      sourceMode: "fresh",
     };
 
     updateJobState(job.id, JobState.STORING);
+    console.log(`[PIPELINE] /generating: Job ${job.id} - STORING phase: Saving artifact to turbopuffer...`);
     
     await tpStoreArtifact(artifactData);
+    console.log(`[PIPELINE] /generating: Job ${job.id} - STORING phase: Artifact stored successfully`);
     
     updateJobState(job.id, JobState.COMPLETED, { result: artifactData });
   } catch (e) {
+    console.error(`[PIPELINE] /generating: Job ${job.id} FAILED:`, e.message);
     updateJobState(job.id, JobState.FAILED, { error: e.message });
   }
 }
@@ -274,7 +393,14 @@ if (method === "GET" && pathname === "/generating") {
     return {
       status: 200,
       headers: { "content-type": "text/html; charset=utf-8" },
-      body: renderGenerating({ place, year, redirectTo: artifactUrl, jobId }),
+      body: renderGenerating({ 
+        place, 
+        year, 
+        redirectTo: artifactUrl, 
+        jobId,
+        jobState: job?.state ?? null,
+        jobStage: job?.stage ?? null,
+      }),
     };
   }
 
@@ -322,7 +448,30 @@ if (method === "GET" && pathname === "/generating") {
       }
     }
 
-    const audioLayers = audioLayersFromJob || (artifactData?.audio_layers ? JSON.parse(artifactData.audio_layers) : null);
+    const audioLayersFromArtifact = (() => {
+  // Try new extended format first
+  if (artifactData?.audio_layers_extended) {
+    const ext = typeof artifactData.audio_layers_extended === 'string' 
+      ? JSON.parse(artifactData.audio_layers_extended) 
+      : artifactData.audio_layers_extended;
+    return {
+      bed: ext.bed,
+      texture: ext.texture,
+      event: ext.human,
+      isMock: ext.isMock,
+      isPartial: ext.isPartial,
+    };
+  }
+  // Fall back to legacy format
+  if (artifactData?.audio_layers) {
+    return typeof artifactData.audio_layers === 'string' 
+      ? JSON.parse(artifactData.audio_layers) 
+      : artifactData.audio_layers;
+  }
+  return null;
+})();
+
+    const audioLayers = audioLayersFromJob || audioLayersFromArtifact || null;
     const partial = audioLayers?.isPartial === true;
 
     return {
@@ -337,7 +486,7 @@ if (method === "GET" && pathname === "/generating") {
         error,
         confidence: artifactData?.confidence || confidence || "high",
         confidenceScore: artifactData?.confidence_score || null,
-        evidence: artifactData?.evidence ? JSON.parse(artifactData.evidence) : null,
+        evidence: artifactData?.evidence ? (typeof artifactData.evidence === "string" ? JSON.parse(artifactData.evidence) : artifactData.evidence) : null,
         evidenceNote: artifactData?.evidence_note || null,
         sourceNotes: artifactData?.source_notes || null,
         audioLayers,
@@ -373,14 +522,20 @@ if (method === "GET" && pathname === "/generating") {
           place: artifactData.place,
           year: artifactData.year,
           version: artifactData.version || 1,
+          schemaVersion: artifactData.schema_version || 1,
           confidence: artifactData.confidence,
           confidenceScore: artifactData.confidence_score,
-          evidence: artifactData.evidence ? JSON.parse(artifactData.evidence) : null,
+          evidence: artifactData.evidence ? (typeof artifactData.evidence === "string" ? JSON.parse(artifactData.evidence) : artifactData.evidence) : null,
+          rawEvidence: artifactData.raw_evidence,
+          normalizedEvidence: artifactData.normalized_evidence,
+          soundscapePlan: artifactData.soundscape_plan,
           evidenceNote: artifactData.evidence_note,
           sourceNotes: artifactData.source_notes,
-          prompts: artifactData.prompts ? JSON.parse(artifactData.prompts) : null,
-          audioLayers: artifactData.audio_layers_ref ? JSON.parse(artifactData.audio_layers_ref) : null,
-          metadata: artifactData.metadata ? JSON.parse(artifactData.metadata) : null,
+          prompts: artifactData.prompts ? (typeof artifactData.prompts === "string" ? JSON.parse(artifactData.prompts) : artifactData.prompts) : null,
+          audioLayers: artifactData.audio_layers ? (typeof artifactData.audio_layers === "string" ? JSON.parse(artifactData.audio_layers) : artifactData.audio_layers) : null,
+          audioLayersExtended: artifactData.audio_layers_extended,
+          summary: artifactData.summary,
+          metadata: artifactData.metadata ? (typeof artifactData.metadata === "string" ? JSON.parse(artifactData.metadata) : artifactData.metadata) : null,
           createdAt: artifactData.created_at,
         } : null,
       }, null, 2),
@@ -401,10 +556,29 @@ if (method === "GET" && pathname === "/generating") {
     }
 
     const existing = await tpGetArtifact(place, year);
-    const newVersion = existing ? (existing.version || 1) + 1 : 1;
+    const newVersion = existing ? (existing.version || 1) + 1 : 2;
 
     const placeKey = place.split(",")[0].trim();
-    const reconstructionMetadata = generateReconstructionMetadata({ place: placeKey, year: parseInt(year) });
+    const reconstructionMetadata = await generateReconstructionMetadata({ place: placeKey, year: parseInt(year) });
+
+    const allEvidence = [
+      ...(reconstructionMetadata.evidenceByLayer.bed || []),
+      ...(reconstructionMetadata.evidenceByLayer.event || []),
+      ...(reconstructionMetadata.evidenceByLayer.texture || []),
+    ];
+
+    const normalizedEvidence = await normalizeEvidence({
+      place: reconstructionMetadata.canonicalPlace,
+      year: reconstructionMetadata.year,
+      rawEvidence: allEvidence,
+      confidence: reconstructionMetadata.confidence,
+    });
+
+    const soundscapePlan = await planSoundscape({
+      normalizedEvidence,
+      place: reconstructionMetadata.canonicalPlace,
+      year: reconstructionMetadata.year,
+    });
 
     const prompts = buildPrompts({
       place: reconstructionMetadata.canonicalPlace,
@@ -413,6 +587,7 @@ if (method === "GET" && pathname === "/generating") {
     });
 
     let audioLayers;
+    let audioLayersExtended;
     const useMockMode = !elIsConfigured();
     
     if (useMockMode) {
@@ -422,15 +597,37 @@ if (method === "GET" && pathname === "/generating") {
         texture: generateMockPrompts(prompts.texture, "texture"),
         isMock: true,
       };
+      audioLayersExtended = {
+        bed: { audioUrl: generateMockPrompts(soundscapePlan.bed.prompt, "bed"), prompt: soundscapePlan.bed.prompt, durationSeconds: soundscapePlan.bed.durationSeconds, loop: soundscapePlan.bed.loop },
+        texture: { audioUrl: generateMockPrompts(soundscapePlan.texture.prompt, "texture"), prompt: soundscapePlan.texture.prompt, durationSeconds: soundscapePlan.texture.durationSeconds, loop: soundscapePlan.texture.loop },
+        human: { audioUrl: generateMockPrompts(soundscapePlan.human.prompt, "human"), prompt: soundscapePlan.human.prompt, durationSeconds: soundscapePlan.human.durationSeconds, loop: soundscapePlan.human.loop },
+        events: (soundscapePlan.events || []).slice(0, 5).map(e => ({
+          name: e.name,
+          audioUrl: generateMockPrompts(e.prompt, `event_${e.name}`),
+          prompt: e.prompt,
+          durationSeconds: e.durationSeconds,
+          weight: e.weight,
+          success: true,
+        })),
+        isMock: true,
+        isPartial: false,
+      };
     } else {
       try {
-        audioLayers = await generateSoundscape({
+        audioLayersExtended = await generateLayers({
+          soundscapePlan,
           place: reconstructionMetadata.canonicalPlace,
           year: reconstructionMetadata.year,
-          evidenceByLayer: reconstructionMetadata.evidenceByLayer,
         });
-        if (audioLayers.isMock) {
-          console.log("Using mock audio (ElevenLabs returned mock)");
+        audioLayers = {
+          bed: audioLayersExtended.bed,
+          event: audioLayersExtended.human,
+          texture: audioLayersExtended.texture,
+          isMock: audioLayersExtended.isMock,
+          isPartial: audioLayersExtended.isPartial,
+        };
+        if (audioLayersExtended.isMock) {
+          console.log("Using mock audio (ElevenLabs not configured)");
         }
       } catch (e) {
         console.warn("Audio generation failed, using fallback:", e.message);
@@ -440,6 +637,7 @@ if (method === "GET" && pathname === "/generating") {
           texture: "mock_fallback_texture", 
           isMock: true 
         };
+        audioLayersExtended = null;
       }
     }
 
@@ -447,17 +645,63 @@ if (method === "GET" && pathname === "/generating") {
       place: reconstructionMetadata.canonicalPlace,
       year: reconstructionMetadata.year,
       version: newVersion,
+      schemaVersion: 2,
+      placeInput: place,
+      yearInput: year,
+      resolvedPlace: reconstructionMetadata.canonicalPlace,
+      resolvedYear: reconstructionMetadata.year,
+      interpretationNote: reconstructionMetadata.reinterpretation?.note || "",
+      evidenceQuality: normalizedEvidence.evidence_quality || (reconstructionMetadata.confidence === "high" ? "strong" : reconstructionMetadata.confidence === "medium" ? "moderate" : "weak"),
       metadata: reconstructionMetadata.reinterpretation,
-      evidence: reconstructionMetadata.evidenceByLayer.bed?.concat(
-        reconstructionMetadata.evidenceByLayer.event || [],
-        reconstructionMetadata.evidenceByLayer.texture || []
-      ) || [],
+      rawEvidence: {
+        provider: "gemini",
+        payload: {
+          query: { place_input: place, year_input: year },
+          resolved: {
+            place: reconstructionMetadata.canonicalPlace,
+            year: reconstructionMetadata.year,
+            historical_aliases: [],
+            interpretation_note: reconstructionMetadata.reinterpretation?.note || "",
+          },
+          confidence: normalizedEvidence.confidence,
+          evidence_quality: normalizedEvidence.evidence_quality || "moderate",
+          evidence_fragments: normalizedEvidence.evidenceFragments || [],
+          dominant_sounds: normalizedEvidence.dominantSounds || [],
+          background_textures: normalizedEvidence.backgroundTextures || [],
+          intermittent_events: normalizedEvidence.intermittentEvents || [],
+          human_activity: normalizedEvidence.humanActivity || [],
+          atmosphere: normalizedEvidence.atmosphere || [],
+          time_of_day: normalizedEvidence.timeOfDay || "unknown",
+          density: normalizedEvidence.density || "moderate",
+          emotional_tone: normalizedEvidence.emotionalTone || [],
+          reliability_notes: normalizedEvidence.reliabilityNotes || [],
+          gaps: normalizedEvidence.gaps || [],
+        },
+      },
+      normalizedEvidence: {
+        evidence_fragments: normalizedEvidence.evidenceFragments || [],
+        dominant_sounds: normalizedEvidence.dominantSounds || [],
+        background_textures: normalizedEvidence.backgroundTextures || [],
+        intermittent_events: normalizedEvidence.intermittentEvents || [],
+        human_activity: normalizedEvidence.humanActivity || [],
+        atmosphere: normalizedEvidence.atmosphere || [],
+        time_of_day: normalizedEvidence.timeOfDay || "unknown",
+        density: normalizedEvidence.density || "moderate",
+        emotional_tone: normalizedEvidence.emotionalTone || [],
+        reliability_notes: normalizedEvidence.reliabilityNotes || [],
+        gaps: normalizedEvidence.gaps || [],
+      },
+      soundscapePlan,
+      evidence: allEvidence,
       prompts,
       audioLayers,
-      confidence: reconstructionMetadata.confidence,
+      audioLayersExtended,
+      summary: soundscapePlan.summary,
+      confidence: normalizedEvidence.confidence || reconstructionMetadata.confidenceScore || 0.7,
       confidenceScore: reconstructionMetadata.confidenceScore,
       evidenceNote: reconstructionMetadata.evidenceNote,
       sourceNotes: reconstructionMetadata.sourceNotes,
+      sourceMode: "fresh",
     };
 
     await tpStoreArtifact(artifactData);

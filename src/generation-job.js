@@ -1,6 +1,8 @@
 export const JobState = {
   PENDING: "pending",
   EVIDENCE: "evidence",
+  NORMALIZING: "normalizing",
+  PLANNING: "planning",
   PROMPTS: "prompts",
   GENERATING: "generating",
   STORING: "storing",
@@ -11,6 +13,8 @@ export const JobState = {
 export const JobStage = {
   PENDING: "Gathering historical evidence",
   EVIDENCE: "Gathering historical evidence",
+  NORMALIZING: "Normalizing evidence structure",
+  PLANNING: "Planning soundscape layers",
   PROMPTS: "Building generation prompts",
   GENERATING: "Generating audio layers",
   STORING: "Storing artifact",
@@ -44,7 +48,7 @@ export function clearInFlightJob(place, year) {
   inFlightJobs.delete(lockKey);
 }
 
-export function createJob({ place, year, registerFlight = true }) {
+export function createJob({ place, year, registerFlight = true, preExtractedEvidence = null }) {
   const id = generateJobId();
   const job = {
     id,
@@ -54,6 +58,7 @@ export function createJob({ place, year, registerFlight = true }) {
     stage: JobStage.PENDING,
     result: null,
     error: null,
+    preExtractedEvidence,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };

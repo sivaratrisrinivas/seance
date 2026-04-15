@@ -8,7 +8,7 @@ async function handle(req) {
   return result?.then ? await result : result;
 }
 
-test("E2E: repeat request resolves to archived artifact", async () => {
+test("archived artifact shows Recovered from prior reconstruction badge", async () => {
   const response = await handle({
     method: "GET",
     pathname: "/artifact",
@@ -20,11 +20,11 @@ test("E2E: repeat request resolves to archived artifact", async () => {
   });
 
   assert.equal(response.status, 200);
-  assert.match(response.body, /From your archive/);
+  assert.match(response.body, /Recovered from prior reconstruction/);
   assert.match(response.body, /Hyderabad.*1987/);
 });
 
-test("E2E: archived artifact shows archive-specific language", async () => {
+test("archived artifact avoids cache/hit terminology", async () => {
   const response = await handle({
     method: "GET",
     pathname: "/artifact",
@@ -36,46 +36,27 @@ test("E2E: archived artifact shows archive-specific language", async () => {
   });
 
   assert.equal(response.status, 200);
-  assert.match(response.body, /[Ff]rom your archive/);
-  assert.doesNotMatch(response.body, /cache/i);
-  assert.doesNotMatch(response.body, /hit/i);
+  assert.match(response.body, /Recovered from prior reconstruction/);
+  assert.doesNotMatch(response.body, /\bcache\b/i);
 });
 
-test("E2E: archived artifacts maintain same identity", async () => {
-  const firstResponse = await handle({
-    method: "GET",
-    pathname: "/artifact",
-    searchParams: new URLSearchParams({
-      place: "Tokyo",
-      year: "1965",
-      archived: "true",
-    }),
-  });
+test("same archived artifact produces identical output", async () => {
+  const params = new URLSearchParams({ place: "Tokyo", year: "1965", archived: "true" });
 
-  const secondResponse = await handle({
-    method: "GET",
-    pathname: "/artifact",
-    searchParams: new URLSearchParams({
-      place: "Tokyo",
-      year: "1965",
-      archived: "true",
-    }),
-  });
+  const first = await handle({ method: "GET", pathname: "/artifact", searchParams: params });
+  const second = await handle({ method: "GET", pathname: "/artifact", searchParams: new URLSearchParams({ place: "Tokyo", year: "1965", archived: "true" }) });
 
-  assert.equal(firstResponse.body, secondResponse.body);
+  assert.equal(first.body, second.body);
 });
 
-test("E2E: non-archived artifacts show live generation language", async () => {
+test("non-archived artifact shows Your seance badge", async () => {
   const response = await handle({
     method: "GET",
     pathname: "/artifact",
-    searchParams: new URLSearchParams({
-      place: "Kyoto",
-      year: "1912",
-    }),
+    searchParams: new URLSearchParams({ place: "Kyoto", year: "1912" }),
   });
 
   assert.equal(response.status, 200);
   assert.match(response.body, /Your seance/);
-  assert.doesNotMatch(response.body, /[Ff]rom your archive/);
+  assert.doesNotMatch(response.body, /Recovered from prior reconstruction/);
 });

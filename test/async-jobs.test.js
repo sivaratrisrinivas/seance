@@ -1,91 +1,75 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createJob, getJob, getInFlightJob, JobState, JobStage, updateJobState, clearInFlightJob } from "../src/generation-job.js";
+import { createJob, getJob, updateJobState, getInFlightJob, clearInFlightJob, JobState, JobStage } from "../src/generation-job.js";
 
 test("createJob returns job with pending state", () => {
-  const job = createJob({ place: "London", year: "1940" });
-  
-  assert.ok(job.id);
+  const job = createJob({ place: "TestPlace", year: 2000, registerFlight: false });
+  assert.ok(job.id, "Job should have an ID");
   assert.equal(job.state, JobState.PENDING);
-  assert.equal(job.place, "London");
-  assert.equal(job.year, "1940");
+  assert.equal(job.place, "TestPlace");
+  assert.equal(job.year, 2000);
 });
 
-test("createJob sets initial stage", () => {
-  const job = createJob({ place: "Tokyo", year: "1945" });
-  
+test("createJob sets initial stage to Gathering historical evidence", () => {
+  const job = createJob({ place: "TestPlace2", year: 1950, registerFlight: false });
   assert.equal(job.stage, JobStage.PENDING);
+  assert.equal(job.stage, "Gathering historical evidence");
 });
 
-test("updateJobState advances through stages", () => {
-  const job = createJob({ place: "Paris", year: "1920" });
-  
-  updateJobState(job.id, JobState.EVIDENCE);
-  assert.equal(job.stage, JobStage.EVIDENCE);
-  
-  updateJobState(job.id, JobState.PROMPTS);
-  assert.equal(job.stage, JobStage.PROMPTS);
-  
-  updateJobState(job.id, JobState.GENERATING);
-  assert.equal(job.stage, JobStage.GENERATING);
-  
-  updateJobState(job.id, JobState.STORING);
-  assert.equal(job.stage, JobStage.STORING);
-  
-  updateJobState(job.id, JobState.COMPLETED, { result: { audioLayers: {} } });
-  assert.equal(job.stage, JobStage.COMPLETED);
+test("updateJobState advances state and updates stage label", () => {
+  const job = createJob({ place: "TestAdvance", year: 1960, registerFlight: false });
+  updateJobState(job.id, "NORMALIZING");
+  const updated = getJob(job.id);
+  assert.equal(updated.state, "NORMALIZING");
+  assert.equal(updated.stage, JobStage.NORMALIZING);
+  assert.equal(updated.stage, "Normalizing evidence structure");
 });
 
 test("getJob retrieves existing job by id", () => {
-  const created = createJob({ place: "Tokyo", year: "1945" });
-  const retrieved = getJob(created.id);
-  
-  assert.equal(retrieved?.id, created.id);
-  assert.equal(retrieved?.place, "Tokyo");
+  const job = createJob({ place: "TestGet", year: 1970, registerFlight: false });
+  const retrieved = getJob(job.id);
+  assert.equal(retrieved.id, job.id);
+  assert.equal(retrieved.place, "TestGet");
 });
 
-test("job state transitions from pending to processing", () => {
-  const job = createJob({ place: "Paris", year: "1920" });
-  
-  job.state = JobState.PROCESSING;
-  assert.equal(job.state, JobState.PROCESSING);
+test("job state transitions to COMPLETED", () => {
+  const job = createJob({ place: "TestComplete", year: 1980, registerFlight: false });
+  updateJobState(job.id, JobState.COMPLETED);
+  const updated = getJob(job.id);
+  assert.equal(updated.state, JobState.COMPLETED);
 });
 
-test("job state transitions to completed", () => {
-  const job = createJob({ place: "Berlin", year: "1930" });
-  
-  job.state = JobState.COMPLETED;
-  job.result = { bed: "abc", event: "def", texture: "ghi" };
-  
-  assert.equal(job.state, JobState.COMPLETED);
-  assert.ok(job.result);
-});
-
-test("job state transitions to failed", () => {
-  const job = createJob({ place: "Rome", year: "1950" });
-  
-  job.state = JobState.FAILED;
-  job.error = "Generation failed";
-  
-  assert.equal(job.state, JobState.FAILED);
-  assert.equal(job.error, "Generation failed");
+test("job state transitions to FAILED", () => {
+  const job = createJob({ place: "TestFail", year: 1990, registerFlight: false });
+  updateJobState(job.id, JobState.FAILED);
+  const updated = getJob(job.id);
+  assert.equal(updated.state, JobState.FAILED);
 });
 
 test("single-flight: getInFlightJob returns existing job for same place-year", () => {
-  clearInFlightJob("London", "1940");
-  
-  const firstJob = createJob({ place: "London", year: "1940" });
-  const secondJob = getInFlightJob("London", "1940");
-  
-  assert.equal(secondJob?.id, firstJob.id, "Should return same job");
+  const job = createJob({ place: "TestFlight", year: 1985 });
+  const existing = getInFlightJob("TestFlight", 1985);
+  assert.ok(existing, "Should find in-flight job");
+  assert.equal(existing.id, job.id);
 });
 
-test("single-flight: clearing in-flight allows new job", () => {
-  const job = createJob({ place: "Tokyo", year: "1950" });
-  
-  clearInFlightJob("Tokyo", "1950");
-  const existing = getInFlightJob("Tokyo", "1950");
-  
-  assert.equal(existing, null, "Should allow new job after clear");
+test("single-flight: clearing in-flight returns null for same place-year", () => {
+  const job = createJob({ place: "TestClear2", year: 1986 });
+  clearInFlightJob("TestClear2", 1986);
+  const found = getInFlightJob("TestClear2", 1986);
+  assert.equal(found, null, "Should return null after clearing in-flight job");
+});
+
+test("job includes preExtractedEvidence when provided", () => {
+  const evidence = [{ description: "Test evidence" }];
+  const job = createJob({ place: "TestEvidence", year: 1975, registerFlight: false, preExtractedEvidence: evidence });
+  assert.deepEqual(job.preExtractedEvidence, evidence);
+});
+
+test("completed job clears in-flight automatically", () => {
+  const job = createJob({ place: "TestAutoClr", year: 1977 });
+  assert.ok(getInFlightJob("TestAutoClr", 1977), "Should be in-flight after creation");
+  updateJobState(job.id, JobState.COMPLETED);
+  assert.equal(getInFlightJob("TestAutoClr", 1977), null, "Should be cleared after completion");
 });

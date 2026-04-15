@@ -1,5 +1,6 @@
 import { extractEvidence, extractEvidenceByLayer, getEvidenceSummary } from "./evidence-extractor.js";
 import { resolvePlaceForYear } from "./place-reinterpretation.js";
+import { generateEvidenceFromGemini, parseEvidenceFromGeminiResponse, isConfigured as geminiIsConfigured } from "./gemini-client.js";
 
 function extractBasePlace(place) {
   if (place.includes("(formerly")) {
@@ -8,7 +9,7 @@ function extractBasePlace(place) {
   return place;
 }
 
-export function generateReconstructionMetadata({ place, year }) {
+export async function generateReconstructionMetadata({ place, year, preExtractedEvidence = null }) {
   const reinterpretation = resolvePlaceForYear(place, year);
   
   const finalPlace = reinterpretation.reinterpreted
@@ -16,8 +17,33 @@ export function generateReconstructionMetadata({ place, year }) {
     : place;
 
   const basePlace = extractBasePlace(finalPlace);
-  const evidenceResult = extractEvidence({ place: basePlace, year: parseInt(year) });
-  const { bed: bedEvidence, event: eventEvidence, texture: textureEvidence } = extractEvidenceByLayer(evidenceResult.evidence);
+  const evidenceResult = preExtractedEvidence 
+    ? { evidence: preExtractedEvidence, confidence: "gemini", note: "Evidence from Google Gemini AI" }
+    : extractEvidence({ place: basePlace, year: parseInt(year) });
+  console.log(`[PIPELINE] reconstruction-metadata: Extracted ${evidenceResult.evidence?.length || 0} evidence items (confidence: ${evidenceResult.confidence})`);
+  
+  if (evidenceResult.evidence?.length === 0 && geminiIsConfigured()) {
+    try {
+      console.log(`[PIPELINE] reconstruction-metadata: No evidence found, calling Gemini for ${basePlace}, ${year}...`);
+      const prompt = `${basePlace} in ${year}. Provide sensory-rich historical fragments about the soundscape: ambient sounds, human activity, mechanical/industrial, nature, intermittent events, and specific sound events.`;
+      const geminiResponse = await generateEvidenceFromGemini({
+        place: basePlace,
+        year: parseInt(year),
+        textFragments: [prompt],
+      });
+      const parsedEvidence = parseEvidenceFromGeminiResponse(geminiResponse);
+      if (parsedEvidence?.length > 0) {
+        console.log(`[PIPELINE] reconstruction-metadata: Gemini generated ${parsedEvidence.length} evidence items`);
+        evidenceResult.evidence = parsedEvidence;
+        evidenceResult.confidence = "gemini";
+        evidenceResult.note = "Evidence generated from Google Gemini AI";
+      }
+    } catch (geminiError) {
+      console.warn("Gemini evidence extraction failed:", geminiError.message);
+    }
+  }
+  
+  const { bed: bedEvidence, event: eventEvidence, texture: textureEvidence } = extractEvidenceByLayer(evidenceResult.evidence || []);
 
   const confidenceScore = calculateConfidenceScore(evidenceResult);
   

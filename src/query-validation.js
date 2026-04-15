@@ -1,4 +1,13 @@
 export function validateRitualQuery({ place = "", year = "" } = {}) {
+  if (!place.trim()) {
+    return {
+      ok: false,
+      place,
+      year,
+      message: "A place name is required — try London, Tokyo, or Mumbai.",
+    };
+  }
+
   if (!/^\d+$/.test(year)) {
     return {
       ok: false,

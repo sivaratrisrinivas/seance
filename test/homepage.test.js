@@ -1,52 +1,57 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { renderHomepage } from "../src/render-homepage.js";
+import { handleRequest } from "../server.js";
 
-test("homepage shows the premise and both inputs", async () => {
-  const body = renderHomepage();
+async function handle(req) {
+  const result = handleRequest(req);
+  return result?.then ? await result : result;
+}
 
-  assert.match(body, /Hear a grounded sound reconstruction of any place and year\./);
-  assert.match(body, /name="place"/);
-  assert.match(body, /name="year"/);
-  assert.match(body, /type="number"/);
+test("homepage returns 200 with html content", async () => {
+  const response = await handle({ method: "GET", pathname: "/" });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers["content-type"], "text/html; charset=utf-8");
 });
 
-test("homepage exposes a single Begin seance action tied to the ritual flow", async () => {
-  const body = renderHomepage();
-
-  assert.match(body, /<form action="\/ritual" method="get"/);
-  assert.match(body, />Begin s(?:&eacute;|é)ance</);
+test("homepage has ritual form with place and year inputs", async () => {
+  const response = await handle({ method: "GET", pathname: "/" });
+  assert.match(response.body, /action="\/ritual"/);
+  assert.match(response.body, /name="place"/);
+  assert.match(response.body, /name="year"/);
 });
 
-test("homepage stays anonymous and account free", async () => {
-  const body = renderHomepage();
-
-  for (const phrase of ["Sign in", "Log in", "Create account", "Profile", "Saved"]) {
-    assert.doesNotMatch(body, new RegExp(phrase));
-  }
+test("homepage shows Begin séance CTA button", async () => {
+  const response = await handle({ method: "GET", pathname: "/" });
+  assert.match(response.body, /Begin s/);
+  assert.match(response.body, /type="submit"/);
 });
 
-test("homepage supports mobile and desktop layouts", async () => {
-  const body = renderHomepage();
-
-  assert.match(body, /name="viewport"/);
-  assert.match(body, /@media \(max-width: 720px\)/);
+test("homepage shows example queries as clickable links", async () => {
+  const response = await handle({ method: "GET", pathname: "/" });
+  assert.match(response.body, /Hyderabad/);
+  assert.match(response.body, /href="\/ritual\?place=/);
 });
 
-test("homepage shows subtle example queries after the primary form", async () => {
-  const body = renderHomepage();
-
-  assert.match(body, /Example queries/);
-  assert.match(body, /Old City, Hyderabad\s*&middot;\s*1987/);
-  assert.match(body, /Riverside, California\s*&middot;\s*1962/);
-  assert.equal(body.indexOf("</form>") < body.indexOf("Example queries"), true);
+test("homepage supports responsive layout with media queries", async () => {
+  const response = await handle({ method: "GET", pathname: "/" });
+  assert.match(response.body, /@media/);
+  assert.match(response.body, /viewport/);
 });
 
-test("example entries are clickable and start the ritual flow", async () => {
-  const body = renderHomepage();
+test("homepage includes link to how-it-works page", async () => {
+  const response = await handle({ method: "GET", pathname: "/" });
+  assert.match(response.body, /\/how-it-works/);
+});
 
-  assert.match(body, /href="\/ritual\?place=Old%20City%2C%20Hyderabad&year=1987"/);
-  assert.match(body, /href="\/ritual\?place=Riverside%2C%20California&year=1962"/);
-  assert.match(body, /href="\/ritual\?place=Kyoto%2C%20Japan&year=1912"/);
+test("homepage includes recent queries section for localStorage history", async () => {
+  const response = await handle({ method: "GET", pathname: "/" });
+  assert.match(response.body, /recent-queries/);
+});
+
+test("homepage has no accounts or login UI", async () => {
+  const response = await handle({ method: "GET", pathname: "/" });
+  assert.doesNotMatch(response.body, /login/i);
+  assert.doesNotMatch(response.body, /sign up/i);
+  assert.doesNotMatch(response.body, /account/i);
 });

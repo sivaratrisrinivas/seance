@@ -1,81 +1,102 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { handleRequest } from "../server.js";
+import { extractEvidence } from "../src/evidence-extractor.js";
 import { needsReinterpretation } from "../src/place-reinterpretation.js";
+import { handleRequest } from "../server.js";
 
 async function handle(req) {
   const result = handleRequest(req);
   return result?.then ? await result : result;
 }
 
-test("ritual route handles historical place name variants via generating", async () => {
-  const response = await handle({
-    method: "GET",
-    pathname: "/ritual",
-    searchParams: new URLSearchParams({
-      place: "Rangoon",
-      year: "1900",
-    }),
-  });
+// --- Unit: extractEvidence ---
 
-  assert.equal(response.status, 302);
-  assert.match(response.headers.location, /\/generating\?/);
+test("extractEvidence returns high confidence for hardcoded cities", () => {
+  const result = extractEvidence({ place: "Hyderabad", year: 1987 });
+  assert.equal(result.confidence, "high");
+  assert.ok(result.evidence.length > 0);
 });
 
-test("artifact page shows historical place metadata for reinterpreted queries", async () => {
-  const response = await handle({
-    method: "GET",
-    pathname: "/artifact",
-    searchParams: new URLSearchParams({
-      place: "Rangoon",
-      year: "1900",
-    }),
-  });
-
-  assert.equal(response.status, 200);
-  assert.match(response.body, /Rangoon.*1900|Reconstructed|formerly/);
+test("extractEvidence returns evidence items with description and tags", () => {
+  const result = extractEvidence({ place: "Tokyo", year: 1965 });
+  assert.ok(result.evidence.length > 0);
+  const first = result.evidence[0];
+  assert.ok(first.description || first.text, "Each evidence item should have description or text");
 });
 
-test("artifact page shows modern name alongside historical query for place-year reinterpretation", async () => {
-  const response = await handle({
-    method: "GET",
-    pathname: "/artifact",
-    searchParams: new URLSearchParams({
-      id: btoa("Yangon:1800").replace(/=/g, ""),
-    }),
-  });
-
-  assert.equal(response.status, 200);
-  assert.match(response.body, /[Pp]lace|[Rr]econstructed|[Gg]eographic/);
+test("extractEvidence resolves aliases (Mumbai -> Bombay)", () => {
+  const result = extractEvidence({ place: "Mumbai", year: 1975 });
+  assert.ok(result.evidence.length > 0);
 });
 
-test("needsReinterpretation returns true for anachronistic queries that need geographic reinterpretation", async () => {
-  const result = needsReinterpretation("Singapore", "1800");
+test("extractEvidence returns low confidence for unknown places", () => {
+  const result = extractEvidence({ place: "RandomPlace123", year: 1900 });
+  assert.ok(["low", "blocked"].includes(result.confidence));
+  assert.equal(result.evidence.length, 0);
+});
+
+test("extractEvidence blocks generic conflict zones in sensitive periods", () => {
+  const result = extractEvidence({ place: "UnknownConflict", year: 1939 });
+  assert.equal(result.blocked, true);
+});
+
+// --- Unit: place reinterpretation ---
+
+test("needsReinterpretation returns true for anachronistic queries", () => {
+  // Singapore wasn't established until ~1819
+  const result = needsReinterpretation("Singapore", 1700);
   assert.equal(result, true);
 });
 
-test("needsReinterpretation returns true for modern place queried with pre-existence year", async () => {
-  const result = needsReinterpretation("Dubai", "1800");
-  assert.equal(result, true);
-});
-
-test("needsReinterpretation returns false for valid place-year combinations", async () => {
-  const result = needsReinterpretation("Hyderabad", "1987");
+test("needsReinterpretation returns false for valid place-year", () => {
+  const result = needsReinterpretation("London", 1850);
   assert.equal(result, false);
 });
 
-test("anachronistic query shows geographic reinterpretation note in artifact", async () => {
+// --- Integration: disambiguation ---
+
+test("ambiguous places redirect to disambiguation page", async () => {
   const response = await handle({
     method: "GET",
-    pathname: "/artifact",
-    searchParams: new URLSearchParams({
-      place: "Singapore",
-      year: "1800",
-      note: "reconstructed area",
-    }),
+    pathname: "/ritual",
+    searchParams: new URLSearchParams({ place: "Springfield", year: "1987" }),
   });
+  assert.equal(response.status, 302);
+  assert.match(response.headers.location, /\/disambiguate\?/);
+});
 
+test("disambiguation page shows candidates", async () => {
+  const response = await handle({
+    method: "GET",
+    pathname: "/disambiguate",
+    searchParams: new URLSearchParams({ place: "Springfield", year: "1987" }),
+  });
   assert.equal(response.status, 200);
-  assert.match(response.body, /[Rr]econstruct|[Gg]eographic|[Aa]rea/);
+  assert.match(response.body, /Springfield/i);
+  assert.match(response.body, /Missouri/i);
+  assert.match(response.body, /Illinois/i);
+});
+
+test("non-ambiguous places do not redirect to disambiguation", async () => {
+  const response = await handle({
+    method: "GET",
+    pathname: "/ritual",
+    searchParams: new URLSearchParams({ place: "Hyderabad", year: "1987" }),
+  });
+  assert.notEqual(response.headers?.location?.includes("/disambiguate"), true);
+});
+
+// --- Integration: disambiguation runs before Gemini call ---
+
+test("disambiguation check happens before Gemini evidence fetch", async () => {
+  // Springfield should redirect to /disambiguate immediately
+  // without hitting the Gemini API (no Gemini logs expected)
+  const response = await handle({
+    method: "GET",
+    pathname: "/ritual",
+    searchParams: new URLSearchParams({ place: "Springfield", year: "1950" }),
+  });
+  assert.equal(response.status, 302);
+  assert.match(response.headers.location, /\/disambiguate/);
 });

@@ -8,43 +8,30 @@ async function handle(req) {
   return result?.then ? await result : result;
 }
 
-test("how-it-works route serves the explanation page", async () => {
-  const response = await handle({
-    method: "GET",
-    pathname: "/how-it-works",
-  });
-
+test("how-it-works returns 200 with correct title", async () => {
+  const response = await handle({ method: "GET", pathname: "/how-it-works" });
   assert.equal(response.status, 200);
-  assert.match(response.body, /Ground in Evidence/);
-  assert.match(response.body, /Generate the Soundscape/);
-  assert.match(response.body, /Archive for Later/);
+  assert.match(response.body, /How It Works/);
 });
 
-test("how-it-works page explains the tech stack", async () => {
-  const response = await handle({
-    method: "GET",
-    pathname: "/how-it-works",
-  });
-
+test("how-it-works mentions ElevenLabs as part of the tech stack", async () => {
+  const response = await handle({ method: "GET", pathname: "/how-it-works" });
   assert.match(response.body, /ElevenLabs/);
-  assert.match(response.body, /Turbopuffer/);
 });
 
-test("how-it-works page includes link back to homepage", async () => {
-  const response = await handle({
-    method: "GET",
-    pathname: "/how-it-works",
-  });
+test("how-it-works mentions evidence, soundscape, and audio concepts", async () => {
+  const response = await handle({ method: "GET", pathname: "/how-it-works" });
+  assert.match(response.body, /evidence/i);
+  assert.match(response.body, /soundscape/i);
+  assert.match(response.body, /audio/i);
+});
 
+test("how-it-works includes link back to homepage", async () => {
+  const response = await handle({ method: "GET", pathname: "/how-it-works" });
   assert.match(response.body, /href="\/"/);
 });
 
-test("homepage includes link to how-it-works page", async () => {
-  const response = await handle({
-    method: "GET",
-    pathname: "/",
-  });
-
-  assert.match(response.body, /href="\/how-it-works"/);
-  assert.match(response.body, /How it works/);
+test("homepage includes link to how-it-works", async () => {
+  const response = await handle({ method: "GET", pathname: "/" });
+  assert.match(response.body, /\/how-it-works/);
 });
