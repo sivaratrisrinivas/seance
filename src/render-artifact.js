@@ -116,12 +116,23 @@ export function renderArtifact({ place, year, archived = false, confidence = "hi
 
   const errorMessage = error ? `<p class="error-note">Generation note: ${escapeHtml(error)}</p>` : "";
 
+  const shareTitle = `Séance: ${queryLabel}`;
+  const shareDesc = archived 
+    ? `Hear ${queryLabel} from the archive` 
+    : `Hear what ${queryLabel} sounded like`;
+  
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Your Seance</title>
+    <title>${queryLabel} — Séance</title>
+    <meta property="og:title" content="${shareTitle}" />
+    <meta property="og:description" content="${shareDesc}" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="${shareTitle}" />
+    <meta name="twitter:description" content="${shareDesc}" />
     <style>
 ${sharedStyles()}
 
