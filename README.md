@@ -82,7 +82,7 @@ The system handles partial generation gracefully:
 
 Generation runs as background jobs:
 
-- Job states: PENDING, PROCESSING, COMPLETED, FAILED
-- Job endpoint: GET `/job/status?id=job_xxx` returns JSON state
-- Generating page polls job status via JavaScript
-- Archive flow remains unchanged
+- Job states: PENDING, EVIDENCE, PROMPTS, GENERATING, STORING, COMPLETED, FAILED
+- Named stages displayed in UI at each step
+- Job endpoint: GET `/job/status?id=job_xxx` returns JSON state + stage
+- Generating page polls job status and updates stage text

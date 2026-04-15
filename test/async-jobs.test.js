@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createJob, getJob, JobState } from "../src/generation-job.js";
+import { createJob, getJob, JobState, JobStage, updateJobState } from "../src/generation-job.js";
 
 test("createJob returns job with pending state", () => {
   const job = createJob({ place: "London", year: "1940" });
@@ -10,6 +10,31 @@ test("createJob returns job with pending state", () => {
   assert.equal(job.state, JobState.PENDING);
   assert.equal(job.place, "London");
   assert.equal(job.year, "1940");
+});
+
+test("createJob sets initial stage", () => {
+  const job = createJob({ place: "Tokyo", year: "1945" });
+  
+  assert.equal(job.stage, JobStage.PENDING);
+});
+
+test("updateJobState advances through stages", () => {
+  const job = createJob({ place: "Paris", year: "1920" });
+  
+  updateJobState(job.id, JobState.EVIDENCE);
+  assert.equal(job.stage, JobStage.EVIDENCE);
+  
+  updateJobState(job.id, JobState.PROMPTS);
+  assert.equal(job.stage, JobStage.PROMPTS);
+  
+  updateJobState(job.id, JobState.GENERATING);
+  assert.equal(job.stage, JobStage.GENERATING);
+  
+  updateJobState(job.id, JobState.STORING);
+  assert.equal(job.stage, JobStage.STORING);
+  
+  updateJobState(job.id, JobState.COMPLETED, { result: { audioLayers: {} } });
+  assert.equal(job.stage, JobStage.COMPLETED);
 });
 
 test("getJob retrieves existing job by id", () => {

@@ -148,11 +148,13 @@ export async function handleRequest({
   }
 
   async function runGenerationJob(job) {
-  updateJobState(job.id, JobState.PROCESSING);
+  updateJobState(job.id, JobState.EVIDENCE);
   
   try {
     const placeKey = job.place.split(",")[0].trim();
     const reconstructionMetadata = generateReconstructionMetadata({ place: placeKey, year: parseInt(job.year) });
+    
+    updateJobState(job.id, JobState.PROMPTS);
     
     const prompts = buildPrompts({
       place: reconstructionMetadata.canonicalPlace,
@@ -160,6 +162,8 @@ export async function handleRequest({
       evidenceByLayer: reconstructionMetadata.evidenceByLayer,
     });
 
+    updateJobState(job.id, JobState.GENERATING);
+    
     const audioLayers = await generateSoundscape({
       place: reconstructionMetadata.canonicalPlace,
       year: reconstructionMetadata.year,
@@ -182,6 +186,8 @@ export async function handleRequest({
       sourceNotes: reconstructionMetadata.sourceNotes,
     };
 
+    updateJobState(job.id, JobState.STORING);
+    
     await tpStoreArtifact(artifactData);
     
     updateJobState(job.id, JobState.COMPLETED, { result: artifactData });
@@ -455,6 +461,7 @@ if (method === "GET" && pathname === "/generating") {
       body: JSON.stringify({
         id: job.id,
         state: job.state,
+        stage: job.stage,
         place: job.place,
         year: job.year,
         result: job.result,

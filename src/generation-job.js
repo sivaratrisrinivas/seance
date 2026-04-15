@@ -1,8 +1,21 @@
 export const JobState = {
   PENDING: "pending",
-  PROCESSING: "processing",
+  EVIDENCE: "evidence",
+  PROMPTS: "prompts",
+  GENERATING: "generating",
+  STORING: "storing",
   COMPLETED: "completed",
   FAILED: "failed",
+};
+
+export const JobStage = {
+  PENDING: "Gathering historical evidence",
+  EVIDENCE: "Gathering historical evidence",
+  PROMPTS: "Building generation prompts",
+  GENERATING: "Generating audio layers",
+  STORING: "Storing artifact",
+  COMPLETED: "Complete",
+  FAILED: "Generation failed",
 };
 
 const jobs = new Map();
@@ -18,6 +31,7 @@ export function createJob({ place, year }) {
     place,
     year,
     state: JobState.PENDING,
+    stage: JobStage.PENDING,
     result: null,
     error: null,
     createdAt: new Date().toISOString(),
@@ -37,6 +51,7 @@ export function updateJobState(id, state, data = {}) {
   if (!job) return null;
   
   job.state = state;
+  job.stage = JobStage[state.toUpperCase()] || JobStage.PENDING;
   job.updatedAt = new Date().toISOString();
   
   if (data.result) job.result = data.result;

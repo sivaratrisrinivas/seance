@@ -24,8 +24,8 @@ export function renderGenerating({ place, year, redirectTo = null, jobId = null,
                 window.location.href = redirectUrl;
               } else {
                 var stageEl = document.getElementById("progress-stage");
-                if (data.state === "processing") {
-                  stageEl.textContent = "Generating audio layers...";
+                if (data.stage) {
+                  stageEl.textContent = data.stage;
                 }
                 setTimeout(checkStatus, 2000);
               }
