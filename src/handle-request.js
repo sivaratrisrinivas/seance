@@ -13,7 +13,7 @@ import { generateSoundscape, isConfigured as elIsConfigured } from "./elevenlabs
 import { buildPrompts } from "./prompt-builder.js";
 import { extractEvidence, getEvidenceSummary } from "./evidence-extractor.js";
 import { generateReconstructionMetadata, getReconstructionSummary } from "./reconstruction-metadata.js";
-import { createJob, getJob, JobState, updateJobState } from "./generation-job.js";
+import { createJob, getJob, getInFlightJob, JobState, updateJobState } from "./generation-job.js";
 
 const AMBIGUOUS_PLACES = {
   Springfield: ["Springfield, Missouri", "Springfield, Illinois"],
@@ -214,9 +214,16 @@ if (method === "GET" && pathname === "/generating") {
     let jobId = searchParams.get("jobId") ?? "";
 
     if (!jobId && place && year) {
-      job = createJob({ place, year });
-      jobId = job.id;
-      runGenerationJob(job).then(() => {});
+      const existingJob = getInFlightJob(place, year);
+      
+      if (existingJob) {
+        job = existingJob;
+        jobId = existingJob.id;
+      } else {
+        job = createJob({ place, year });
+        jobId = job.id;
+        runGenerationJob(job).then(() => {});
+      }
     } else if (jobId) {
       job = getJob(jobId);
     }

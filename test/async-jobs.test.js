@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createJob, getJob, JobState, JobStage, updateJobState } from "../src/generation-job.js";
+import { createJob, getJob, getInFlightJob, JobState, JobStage, updateJobState, clearInFlightJob } from "../src/generation-job.js";
 
 test("createJob returns job with pending state", () => {
   const job = createJob({ place: "London", year: "1940" });
@@ -70,4 +70,22 @@ test("job state transitions to failed", () => {
   
   assert.equal(job.state, JobState.FAILED);
   assert.equal(job.error, "Generation failed");
+});
+
+test("single-flight: getInFlightJob returns existing job for same place-year", () => {
+  clearInFlightJob("London", "1940");
+  
+  const firstJob = createJob({ place: "London", year: "1940" });
+  const secondJob = getInFlightJob("London", "1940");
+  
+  assert.equal(secondJob?.id, firstJob.id, "Should return same job");
+});
+
+test("single-flight: clearing in-flight allows new job", () => {
+  const job = createJob({ place: "Tokyo", year: "1950" });
+  
+  clearInFlightJob("Tokyo", "1950");
+  const existing = getInFlightJob("Tokyo", "1950");
+  
+  assert.equal(existing, null, "Should allow new job after clear");
 });

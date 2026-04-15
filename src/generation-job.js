@@ -19,12 +19,32 @@ export const JobStage = {
 };
 
 const jobs = new Map();
+const inFlightJobs = new Map();
+
+function getLockKey(place, year) {
+  return `${place.toLowerCase()}:${year}`;
+}
 
 function generateJobId() {
   return `job_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
 
-export function createJob({ place, year }) {
+export function getInFlightJob(place, year) {
+  const lockKey = getLockKey(place, year);
+  return inFlightJobs.get(lockKey) || null;
+}
+
+export function setInFlightJob(job) {
+  const lockKey = getLockKey(job.place, job.year);
+  inFlightJobs.set(lockKey, job);
+}
+
+export function clearInFlightJob(place, year) {
+  const lockKey = getLockKey(place, year);
+  inFlightJobs.delete(lockKey);
+}
+
+export function createJob({ place, year, registerFlight = true }) {
   const id = generateJobId();
   const job = {
     id,
@@ -39,6 +59,11 @@ export function createJob({ place, year }) {
   };
   
   jobs.set(id, job);
+  
+  if (registerFlight) {
+    setInFlightJob(job);
+  }
+  
   return job;
 }
 
@@ -56,6 +81,10 @@ export function updateJobState(id, state, data = {}) {
   
   if (data.result) job.result = data.result;
   if (data.error) job.error = data.error;
+  
+  if (state === JobState.COMPLETED || state === JobState.FAILED) {
+    clearInFlightJob(job.place, job.year);
+  }
   
   return job;
 }

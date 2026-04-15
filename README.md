@@ -86,3 +86,12 @@ Generation runs as background jobs:
 - Named stages displayed in UI at each step
 - Job endpoint: GET `/job/status?id=job_xxx` returns JSON state + stage
 - Generating page polls job status and updates stage text
+
+## Single-Flight
+
+Prevents duplicate generations for same place-year:
+
+- In-flight job tracking by place:year key
+- Concurrent requests return existing job
+- Waiting requests resolve to same artifact
+- Lock clears on completion/failure
