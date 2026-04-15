@@ -1,6 +1,15 @@
+/**
+ * reconstruction-metadata.js — Orchestrates evidence gathering.
+ *
+ * In the platonic pipeline, this module:
+ * 1. Resolves place reinterpretation (once, not duplicated)
+ * 2. Uses local evidence + pre-fetched Gemini results (no redundant API calls)
+ * 3. Derives confidence from actual evidence item averages
+ * 4. Generates source attribution notes
+ */
+
 import { extractEvidence, extractEvidenceByLayer, getEvidenceSummary } from "./evidence-extractor.js";
 import { resolvePlaceForYear } from "./place-reinterpretation.js";
-import { generateEvidenceFromGemini, parseEvidenceFromGeminiResponse, isConfigured as geminiIsConfigured } from "./gemini-client.js";
 
 function extractBasePlace(place) {
   if (place.includes("(formerly")) {
@@ -9,54 +18,61 @@ function extractBasePlace(place) {
   return place;
 }
 
-export async function generateReconstructionMetadata({ place, year, preExtractedEvidence = null }) {
+export async function generateReconstructionMetadata({
+  place,
+  year,
+  preExtractedEvidence = null,
+  preComputedGeminiResult = null,
+}) {
   const reinterpretation = resolvePlaceForYear(place, year);
-  
-  const finalPlace = reinterpretation.reinterpreted
-    ? `${reinterpretation.modern} (formerly ${reinterpretation.original})`
+
+  // Keep reinterpretation as metadata, don't pollute the place string
+  const canonicalPlace = reinterpretation.reinterpreted
+    ? reinterpretation.modern
     : place;
 
-  const basePlace = extractBasePlace(finalPlace);
-  const evidenceResult = preExtractedEvidence 
-    ? { evidence: preExtractedEvidence, confidence: "gemini", note: "Evidence from Google Gemini AI" }
-    : extractEvidence({ place: basePlace, year: parseInt(year) });
-  console.log(`[PIPELINE] reconstruction-metadata: Extracted ${evidenceResult.evidence?.length || 0} evidence items (confidence: ${evidenceResult.confidence})`);
-  
-  if (evidenceResult.evidence?.length === 0 && geminiIsConfigured()) {
-    try {
-      console.log(`[PIPELINE] reconstruction-metadata: No evidence found, calling Gemini for ${basePlace}, ${year}...`);
-      const prompt = `${basePlace} in ${year}. Provide sensory-rich historical fragments about the soundscape: ambient sounds, human activity, mechanical/industrial, nature, intermittent events, and specific sound events.`;
-      const geminiResponse = await generateEvidenceFromGemini({
-        place: basePlace,
-        year: parseInt(year),
-        textFragments: [prompt],
-      });
-      const parsedEvidence = parseEvidenceFromGeminiResponse(geminiResponse);
-      if (parsedEvidence?.length > 0) {
-        console.log(`[PIPELINE] reconstruction-metadata: Gemini generated ${parsedEvidence.length} evidence items`);
-        evidenceResult.evidence = parsedEvidence;
-        evidenceResult.confidence = "gemini";
-        evidenceResult.note = "Evidence generated from Google Gemini AI";
-      }
-    } catch (geminiError) {
-      console.warn("Gemini evidence extraction failed:", geminiError.message);
-    }
+  const basePlace = extractBasePlace(canonicalPlace);
+
+  // ── Gather evidence ───────────────────────────────────────────
+  let evidenceResult;
+
+  if (preExtractedEvidence && preExtractedEvidence.length > 0) {
+    // Use pre-extracted evidence (from /ritual route or Gemini pipeline)
+    evidenceResult = {
+      evidence: preExtractedEvidence,
+      confidence: "gemini",
+      note: "Evidence from consolidated pipeline",
+    };
+    console.log(`[PIPELINE] reconstruction-metadata: Using ${preExtractedEvidence.length} pre-extracted evidence items`);
+  } else if (preComputedGeminiResult) {
+    // Use evidence from the consolidated Gemini pipeline
+    evidenceResult = {
+      evidence: preComputedGeminiResult.evidenceItems || [],
+      confidence: "gemini",
+      note: "Evidence from Gemini pipeline",
+    };
+    console.log(`[PIPELINE] reconstruction-metadata: Using ${preComputedGeminiResult.evidenceItems?.length || 0} Gemini pipeline evidence items`);
+  } else {
+    // Fall back to local extraction only (no redundant Gemini call)
+    evidenceResult = extractEvidence({ place: basePlace, year: parseInt(year) });
+    console.log(`[PIPELINE] reconstruction-metadata: Local extraction: ${evidenceResult.evidence?.length || 0} items (confidence: ${evidenceResult.confidence})`);
   }
-  
+
   const { bed: bedEvidence, event: eventEvidence, texture: textureEvidence } = extractEvidenceByLayer(evidenceResult.evidence || []);
 
+  // ── Derive confidence from actual evidence ────────────────────
   const confidenceScore = calculateConfidenceScore(evidenceResult);
-  
+
   const sourceNotes = generateSourceNotes(evidenceResult.evidence);
-  
+
   const reconstructionMetadata = {
-    canonicalPlace: finalPlace,
+    canonicalPlace,
     originalPlace: place,
     year: parseInt(year),
     reinterpretation: reinterpretation.reinterpreted ? reinterpretation : null,
     confidence: evidenceResult.confidence,
     confidenceScore,
-    evidenceCount: evidenceResult.evidence.length,
+    evidenceCount: (evidenceResult.evidence || []).length,
     evidenceByLayer: {
       bed: bedEvidence,
       event: eventEvidence,
@@ -71,9 +87,18 @@ export async function generateReconstructionMetadata({ place, year, preExtracted
 }
 
 function calculateConfidenceScore(evidenceResult) {
-  if (evidenceResult.confidence === "high") return 0.85;
-  if (evidenceResult.confidence === "medium") return 0.65;
-  return 0.45;
+  const evidence = evidenceResult.evidence || [];
+
+  if (evidence.length === 0) return 0.3;
+
+  // Derive from actual per-item confidence values
+  const avg = evidence.reduce((sum, e) => sum + (e.confidence || 0.5), 0) / evidence.length;
+
+  // Adjust by confidence level
+  if (evidenceResult.confidence === "high") return Math.min(avg + 0.05, 1.0);
+  if (evidenceResult.confidence === "gemini") return Math.min(avg, 0.85);
+  if (evidenceResult.confidence === "medium") return Math.min(avg * 0.9, 0.75);
+  return Math.min(avg * 0.7, 0.55);
 }
 
 function generateSourceNotes(evidence) {
@@ -109,6 +134,8 @@ function formatSourceName(source) {
     academicResearch: "academic research",
     soundRecording: "historical recordings",
     newspaperArchive: "newspaper archives",
+    gemini: "AI-generated research",
+    inferred: "inferred sources",
   };
   return names[source] || source;
 }
@@ -121,7 +148,7 @@ export function getLayerEvidenceSummary(layerType, evidenceByLayer) {
   };
 
   const layerEvidence = layerMap[layerType] || [];
-  
+
   if (layerEvidence.length === 0) {
     return {
       hasEvidence: false,
@@ -143,15 +170,15 @@ export function getLayerEvidenceSummary(layerType, evidenceByLayer) {
 
 export function getReconstructionSummary(metadata) {
   const parts = [];
-  
+
   parts.push(`${metadata.canonicalPlace}, ${metadata.year}`);
-  
+
   if (metadata.reinterpretation) {
     parts.push("reconstructed location");
   }
-  
+
   parts.push(`${metadata.confidence} confidence`);
-  
+
   if (metadata.evidenceCount > 0) {
     parts.push(`${metadata.evidenceCount} sources`);
   }

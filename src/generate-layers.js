@@ -1,3 +1,15 @@
+/**
+ * generate-layers.js — Audio layer generation via ElevenLabs.
+ *
+ * This is the SINGLE entry point for audio generation. (elevenlabs-client.js
+ * provides only the primitive generateAudioLayer and isConfigured.)
+ *
+ * Improvements over original:
+ * - Parallel generation of bed/texture/human via Promise.allSettled
+ * - Retry logic for failed individual layers
+ * - Adaptive prompt_influence based on evidence confidence
+ */
+
 import { isConfigured as elIsConfigured } from "./elevenlabs-client.js";
 import { coerceSoundscapePlan } from "./plan-soundscape.js";
 
@@ -50,12 +62,7 @@ async function uploadToR2(audioData, key) {
   return `${R2_PUBLIC_URL}/${key}`;
 }
 
-const DEFAULT_DURATION = {
-  bed: 20,
-  texture: 20,
-  human: 15,
-  event: 3,
-};
+// ─── Prompt enhancers ───────────────────────────────────────────────────
 
 function buildBedPrompt(planPrompt, place, year) {
   return `${planPrompt}. ${place} ${year}. Natural environmental ambience. No narration. No music foreground. Seamless ambient loop.`;
@@ -75,7 +82,81 @@ function buildEventPrompt(planPrompt) {
 
 export { buildBedPrompt, buildTexturePrompt, buildHumanPrompt, buildEventPrompt };
 
-export async function generateLayers({ soundscapePlan, place, year }) {
+// ─── Core audio generation ──────────────────────────────────────────────
+
+export async function generateAudioLayer({ text, layerType, durationSeconds = 10, place = "", year = "", confidence = 0.7 }) {
+  if (!ELEVENLABS_API_KEY) {
+    return generateMockAudio(text, layerType);
+  }
+
+  // Adaptive prompt_influence based on evidence confidence
+  const promptInfluence = layerType === "bed"
+    ? (confidence > 0.8 ? 0.35 : 0.25)
+    : (confidence > 0.8 ? 0.55 : 0.45);
+
+  const response = await fetch(`${ELEVENLABS_BASE_URL}?output_format=mp3_44100_128`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "xi-api-key": ELEVENLABS_API_KEY,
+    },
+    body: JSON.stringify({
+      text,
+      model_id: "eleven_text_to_sound_v2",
+      duration_seconds: durationSeconds,
+      prompt_influence: promptInfluence,
+      loop: layerType === "bed" || layerType === "texture" || layerType === "human",
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`ElevenLabs API error: ${response.status} - ${error}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  const base64Audio = Buffer.from(arrayBuffer).toString("base64");
+
+  if (USE_EXTERNAL_STORAGE) {
+    const timestamp = Date.now();
+    const sanitizedPlace = (place || "unknown").replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
+    const key = `${sanitizedPlace}_${year}/${layerType}_${timestamp}.mp3`;
+
+    try {
+      const url = await uploadToR2(base64Audio, key);
+      if (url) {
+        console.log(`[generate-layers] Uploaded ${layerType} to ${url}`);
+        return url;
+      }
+    } catch (e) {
+      console.warn(`[generate-layers] R2 upload failed for ${layerType}, falling back to base64:`, e.message);
+    }
+  }
+
+  return base64Audio;
+}
+
+// ─── Single layer with retry ────────────────────────────────────────────
+
+async function generateLayerWithRetry({ text, layerType, durationSeconds, place, year, confidence, maxRetries = 1 }) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await generateAudioLayer({ text, layerType, durationSeconds, place, year, confidence });
+      return { success: true, result, error: null };
+    } catch (e) {
+      if (attempt < maxRetries) {
+        console.warn(`[generate-layers] ${layerType} attempt ${attempt + 1} failed: ${e.message}. Retrying...`);
+        await new Promise(r => setTimeout(r, 1000));
+      } else {
+        return { success: false, result: null, error: e.message };
+      }
+    }
+  }
+}
+
+// ─── Main parallel generation ───────────────────────────────────────────
+
+export async function generateLayers({ soundscapePlan, place, year, confidence = 0.7 }) {
   const plan = coerceSoundscapePlan(soundscapePlan);
   const isRealApi = !!ELEVENLABS_API_KEY;
 
@@ -95,67 +176,82 @@ export async function generateLayers({ soundscapePlan, place, year }) {
   };
 
   if (isRealApi) {
-    layerResults.bed = await generateAudioLayer({
-      text: buildBedPrompt(plan.bed.prompt, place, year),
-      layerType: "bed",
-      durationSeconds: plan.bed.durationSeconds,
-      place,
-      year,
-    });
-    layerResults.layerStatus.bed.success = !!layerResults.bed;
+    // ── PARALLEL generation of core layers ──────────────────────
+    console.log(`[generate-layers] Starting PARALLEL generation of 3 core layers for ${place} ${year}`);
+    const startTime = Date.now();
 
-    layerResults.texture = await generateAudioLayer({
-      text: buildTexturePrompt(plan.texture.prompt, place, year),
-      layerType: "texture",
-      durationSeconds: plan.texture.durationSeconds,
-      place,
-      year,
-    });
-    layerResults.layerStatus.texture.success = !!layerResults.texture;
+    const [bedResult, textureResult, humanResult] = await Promise.allSettled([
+      generateLayerWithRetry({
+        text: buildBedPrompt(plan.bed.prompt, place, year),
+        layerType: "bed",
+        durationSeconds: plan.bed.durationSeconds,
+        place,
+        year,
+        confidence,
+      }),
+      generateLayerWithRetry({
+        text: buildTexturePrompt(plan.texture.prompt, place, year),
+        layerType: "texture",
+        durationSeconds: plan.texture.durationSeconds,
+        place,
+        year,
+        confidence,
+      }),
+      generateLayerWithRetry({
+        text: buildHumanPrompt(plan.human.prompt, place, year),
+        layerType: "human",
+        durationSeconds: plan.human.durationSeconds,
+        place,
+        year,
+        confidence,
+      }),
+    ]);
 
-    layerResults.human = await generateAudioLayer({
-      text: buildHumanPrompt(plan.human.prompt, place, year),
-      layerType: "human",
-      durationSeconds: plan.human.durationSeconds,
-      place,
-      year,
-    });
-    layerResults.layerStatus.human.success = !!layerResults.human;
+    const elapsed = Date.now() - startTime;
+    console.log(`[generate-layers] Core layers completed in ${elapsed}ms (parallel)`);
 
+    // Extract results
+    const bedData = bedResult.status === "fulfilled" ? bedResult.value : { success: false, error: "Promise rejected" };
+    const textureData = textureResult.status === "fulfilled" ? textureResult.value : { success: false, error: "Promise rejected" };
+    const humanData = humanResult.status === "fulfilled" ? humanResult.value : { success: false, error: "Promise rejected" };
+
+    layerResults.bed = bedData.success ? bedData.result : null;
+    layerResults.layerStatus.bed = { success: bedData.success, error: bedData.error };
+
+    layerResults.texture = textureData.success ? textureData.result : null;
+    layerResults.layerStatus.texture = { success: textureData.success, error: textureData.error };
+
+    layerResults.human = humanData.success ? humanData.result : null;
+    layerResults.layerStatus.human = { success: humanData.success, error: humanData.error };
+
+    // ── Events (sequential, up to 5) ────────────────────────────
     const maxEvents = 5;
     const eventsToGenerate = (plan.events || []).slice(0, maxEvents);
 
     for (const eventSpec of eventsToGenerate) {
-      try {
-        const audioUrl = await generateAudioLayer({
-          text: buildEventPrompt(eventSpec.prompt),
-          layerType: "event",
-          durationSeconds: eventSpec.durationSeconds,
-        });
-        layerResults.events.push({
-          name: eventSpec.name,
-          audioUrl,
-          prompt: eventSpec.prompt,
-          durationSeconds: eventSpec.durationSeconds,
-          weight: eventSpec.weight,
-          success: true,
-        });
-        layerResults.eventStatus.push({ name: eventSpec.name, success: true });
-      } catch (e) {
-        console.warn(`[generate-layers] Event "${eventSpec.name}" failed:`, e.message);
-        layerResults.events.push({
-          name: eventSpec.name,
-          audioUrl: null,
-          prompt: eventSpec.prompt,
-          durationSeconds: eventSpec.durationSeconds,
-          weight: eventSpec.weight,
-          success: false,
-          error: e.message,
-        });
-        layerResults.eventStatus.push({ name: eventSpec.name, success: false, error: e.message });
-      }
+      const eventResult = await generateLayerWithRetry({
+        text: buildEventPrompt(eventSpec.prompt),
+        layerType: "event",
+        durationSeconds: eventSpec.durationSeconds,
+      });
+
+      layerResults.events.push({
+        name: eventSpec.name,
+        audioUrl: eventResult.success ? eventResult.result : null,
+        prompt: eventSpec.prompt,
+        durationSeconds: eventSpec.durationSeconds,
+        weight: eventSpec.weight,
+        success: eventResult.success,
+        error: eventResult.error,
+      });
+      layerResults.eventStatus.push({
+        name: eventSpec.name,
+        success: eventResult.success,
+        error: eventResult.error,
+      });
     }
   } else {
+    // Mock mode
     layerResults.bed = generateMockAudio(buildBedPrompt(plan.bed.prompt, place, year), "bed");
     layerResults.texture = generateMockAudio(buildTexturePrompt(plan.texture.prompt, place, year), "texture");
     layerResults.human = generateMockAudio(buildHumanPrompt(plan.human.prompt, place, year), "human");
@@ -187,53 +283,6 @@ export async function generateLayers({ soundscapePlan, place, year }) {
   }
 
   return layerResults;
-}
-
-export async function generateAudioLayer({ text, layerType, durationSeconds = 10, place = "", year = "" }) {
-  if (!ELEVENLABS_API_KEY) {
-    return generateMockAudio(text, layerType);
-  }
-
-  const response = await fetch(`${ELEVENLABS_BASE_URL}?output_format=mp3_44100_128`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "xi-api-key": ELEVENLABS_API_KEY,
-    },
-    body: JSON.stringify({
-      text,
-      model_id: "eleven_text_to_sound_v2",
-      duration_seconds: durationSeconds,
-      prompt_influence: layerType === "bed" ? 0.3 : 0.5,
-      loop: layerType === "bed" || layerType === "texture" || layerType === "human",
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`ElevenLabs API error: ${response.status} - ${error}`);
-  }
-
-  const arrayBuffer = await response.arrayBuffer();
-  const base64Audio = Buffer.from(arrayBuffer).toString("base64");
-
-  if (USE_EXTERNAL_STORAGE) {
-    const timestamp = Date.now();
-    const sanitizedPlace = (place || "unknown").replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
-    const key = `${sanitizedPlace}_${year}/${layerType}_${timestamp}.mp3`;
-    
-    try {
-      const url = await uploadToR2(base64Audio, key);
-      if (url) {
-        console.log(`[generate-layers] Uploaded ${layerType} to ${url}`);
-        return url;
-      }
-    } catch (e) {
-      console.warn(`[generate-layers] R2 upload failed for ${layerType}, falling back to base64:`, e.message);
-    }
-  }
-
-  return base64Audio;
 }
 
 function generateMockAudio(text, layerType) {

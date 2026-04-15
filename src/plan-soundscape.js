@@ -1,4 +1,13 @@
-import { isConfigured as geminiIsConfigured } from "./gemini-client.js";
+/**
+ * plan-soundscape.js — Soundscape planning.
+ *
+ * Creates the audio generation blueprint from normalized evidence.
+ * In the platonic pipeline, the primary planning is done by gemini-pipeline.js.
+ * This module handles the FALLBACK path when Gemini results aren't available,
+ * and provides coercion/validation for soundscape plans from any source.
+ */
+
+import { coerceNormalizedEvidence } from "./normalize-evidence.js";
 import { getPlaceContext } from "./prompt-builder.js";
 
 const NEGATIVE_CONSTRAINTS = [
@@ -9,192 +18,42 @@ const NEGATIVE_CONSTRAINTS = [
   "no graphic or violent sounds",
 ];
 
-function coerceNormalizedEvidence(normalized) {
-  if (!normalized) {
-    return {
-      place: "Unknown",
-      year: 2000,
-      resolvedPlace: "Unknown",
-      historicalAliases: [],
-      confidence: 0.1,
-      evidenceFragments: [],
-      dominantSounds: [],
-      backgroundTextures: [],
-      intermittentEvents: [],
-      humanActivity: [],
-      atmosphere: [],
-      timeOfDay: "unknown",
-      density: "moderate",
-      emotionalTone: [],
-      reliabilityNotes: ["No evidence - fallback reconstruction"],
-    };
+// ─── Main entry point ───────────────────────────────────────────────────
+
+export async function planSoundscape({ normalizedEvidence, place, year, preComputedPlan = null }) {
+  // If we already have a plan from the Gemini pipeline, use it directly
+  if (preComputedPlan && validateSoundscapePlan(preComputedPlan)) {
+    console.log("[plan-soundscape] Using pre-computed plan from Gemini pipeline");
+    return coerceSoundscapePlan(preComputedPlan);
   }
 
-  return {
-    place: normalized.place || "Unknown",
-    year: parseInt(normalized.year) || 2000,
-    resolvedPlace: normalized.resolvedPlace || normalized.place || "Unknown",
-    historicalAliases: Array.isArray(normalized.historicalAliases) ? normalized.historicalAliases : [],
-    confidence: typeof normalized.confidence === "number" ? normalized.confidence : 0.5,
-    evidenceFragments: Array.isArray(normalized.evidenceFragments) ? normalized.evidenceFragments : [],
-    dominantSounds: Array.isArray(normalized.dominantSounds) ? normalized.dominantSounds : [],
-    backgroundTextures: Array.isArray(normalized.backgroundTextures) ? normalized.backgroundTextures : [],
-    intermittentEvents: Array.isArray(normalized.intermittentEvents) ? normalized.intermittentEvents : [],
-    humanActivity: Array.isArray(normalized.humanActivity) ? normalized.humanActivity : [],
-    atmosphere: Array.isArray(normalized.atmosphere) ? normalized.atmosphere : [],
-    timeOfDay: normalized.timeOfDay || "unknown",
-    density: normalized.density || "moderate",
-    emotionalTone: Array.isArray(normalized.emotionalTone) ? normalized.emotionalTone : [],
-    reliabilityNotes: Array.isArray(normalized.reliabilityNotes) ? normalized.reliabilityNotes : [],
-  };
-}
-
-export async function planSoundscape({ normalizedEvidence, place, year }) {
   const coerced = coerceNormalizedEvidence(normalizedEvidence);
-
-  if (geminiIsConfigured() && coerced.evidenceFragments?.length > 0) {
-    try {
-      return await planSoundscapeWithGemini({ normalizedEvidence: coerced, place, year });
-    } catch (e) {
-      console.warn("[plan-soundscape] Gemini planning failed, using fallback:", e.message);
-    }
-  }
-
   return buildFallbackSoundscapePlan({ normalizedEvidence: coerced, place, year });
 }
 
-async function planSoundscapeWithGemini({ normalizedEvidence, place, year }) {
-  const prompt = `You are a historical soundscape planner.
-
-Your task is to convert structured sensory evidence into a layered audio generation plan.
-
-You are NOT writing literary prose.
-You are NOT writing a generic scene description.
-You are creating a sound plan that can be used by a text-to-sound-effects API.
-
-Rules:
-- Do not invent major details unsupported by the evidence.
-- Separate constant background from environmental texture, human activity, and intermittent event sounds.
-- Prefer specific audible cues over vague labels.
-- Keep prompts concrete, short, and mixable.
-- Return valid JSON only.
-
-Return JSON matching exactly this schema:
-
-{
-  "summary": "string",
-  "bed": {
-    "prompt": "string",
-    "duration_seconds": 20,
-    "loop": true
-  },
-  "texture": {
-    "prompt": "string",
-    "duration_seconds": 20,
-    "loop": true
-  },
-  "human": {
-    "prompt": "string",
-    "duration_seconds": 15,
-    "loop": true
-  },
-  "events": [
-    {
-      "name": "string",
-      "prompt": "string",
-      "duration_seconds": 3,
-      "loop": false,
-      "weight": 0.0
-    }
-  ],
-  "mix_notes": {
-    "foreground": ["string"],
-    "midground": ["string"],
-    "background": ["string"]
-  },
-  "listening_modes": {
-    "full_scene": ["bed", "texture", "human"],
-    "atmosphere": ["bed", "texture"],
-    "street_life": ["human", "texture"],
-    "machines": ["string"],
-    "voices": ["string"]
-  }
-}
-
-Normalized evidence JSON:
-${JSON.stringify(normalizedEvidence, null, 2)}
-
-Make all layer prompts concrete, audible, and suitable for a text-to-sound-effects API.
-Avoid poetic wording.`;
-
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${process.env.GEMINI_MODEL || "gemini-3-flash-preview"}:generateContent?key=${process.env.GOOGLE_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 4096, thinkingConfig: { thinkingLevel: "medium" } },
-      }),
-    }
-  );
-
-  const result = await response.json();
-  const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  const parsed = safeJsonParse(text);
-
-  if (parsed && validateSoundscapePlan(parsed)) {
-    // Normalize snake_case field names from Gemini to camelCase
-    const normalizedPlan = {
-      summary: parsed.summary || "",
-      bed: {
-        prompt: parsed.bed.prompt,
-        durationSeconds: parsed.bed.duration_seconds ?? parsed.bed.durationSeconds ?? 20,
-        loop: parsed.bed.loop ?? true,
-      },
-      texture: {
-        prompt: parsed.texture.prompt,
-        durationSeconds: parsed.texture.duration_seconds ?? parsed.texture.durationSeconds ?? 20,
-        loop: parsed.texture.loop ?? true,
-      },
-      human: {
-        prompt: parsed.human.prompt,
-        durationSeconds: parsed.human.duration_seconds ?? parsed.human.durationSeconds ?? 15,
-        loop: parsed.human.loop ?? true,
-      },
-      events: (parsed.events || []).map(e => ({
-        name: e.name,
-        prompt: e.prompt,
-        durationSeconds: e.duration_seconds ?? e.durationSeconds ?? 3,
-        loop: e.loop ?? false,
-        weight: e.weight ?? 0.2,
-      })),
-      mixNotes: parsed.mix_notes || parsed.mixNotes || {},
-      listeningModes: parsed.listening_modes || parsed.listeningModes || {},
-    };
-    return normalizedPlan;
-  }
-
-  throw new Error("Invalid plan structure from Gemini");
-}
+// ─── Fallback builder ───────────────────────────────────────────────────
 
 export function buildFallbackSoundscapePlan({ normalizedEvidence, place, year }) {
-  const context = getPlaceContext(place);
-  const evidenceText = normalizedEvidence.evidenceFragments
+  const context = getPlaceContext(place, year);
+  const evidenceText = (normalizedEvidence.evidenceFragments || [])
     .map(f => f.text)
     .join(" ");
 
   const bedPrompt = buildBedPrompt(evidenceText, context, normalizedEvidence, place, year);
   const texturePrompt = buildTexturePrompt(evidenceText, context, normalizedEvidence, place, year);
   const humanPrompt = buildHumanPrompt(evidenceText, context, normalizedEvidence, place, year);
-
   const events = buildEventsFromEvidence(normalizedEvidence.evidenceFragments, context);
 
+  // Evidence-informed durations
+  const density = normalizedEvidence.density || "moderate";
+  const bedDuration = density === "dense" ? 25 : density === "sparse" ? 15 : 20;
+  const humanDuration = density === "dense" ? 20 : density === "sparse" ? 10 : 15;
+
   return {
-    summary: `${place} in ${year}: ${normalizedEvidence.density} soundscape with ${normalizedEvidence.atmosphere?.join(", ") || "ambient"} atmosphere`,
+    summary: `${place} in ${year}: ${density} soundscape with ${normalizedEvidence.atmosphere?.join(", ") || "ambient"} atmosphere`,
     bed: {
       prompt: bedPrompt,
-      durationSeconds: 20,
+      durationSeconds: bedDuration,
       loop: true,
     },
     texture: {
@@ -204,7 +63,7 @@ export function buildFallbackSoundscapePlan({ normalizedEvidence, place, year })
     },
     human: {
       prompt: humanPrompt,
-      durationSeconds: 15,
+      durationSeconds: humanDuration,
       loop: true,
     },
     events: events,
@@ -223,24 +82,29 @@ export function buildFallbackSoundscapePlan({ normalizedEvidence, place, year })
   };
 }
 
+// ─── Prompt builders ────────────────────────────────────────────────────
+
 function buildBedPrompt(evidenceText, context, normalized, place, year) {
   const t = evidenceText.toLowerCase();
   let bedSounds = [];
 
-  if (t.includes("train") || t.includes("metro") || t.includes("railway")) {
-    bedSounds.push("distant train rumble");
+  if (t.includes("train") || t.includes("metro") || t.includes("railway") || t.includes("tram")) {
+    bedSounds.push("distant train and rail rumble");
   }
-  if (t.includes("ocean") || t.includes("sea") || t.includes("river")) {
-    bedSounds.push("water lapping");
+  if (t.includes("ocean") || t.includes("sea") || t.includes("river") || t.includes("wave")) {
+    bedSounds.push("water lapping and gentle waves");
   }
-  if (t.includes("traffic") || t.includes("vehicle")) {
-    bedSounds.push("distant traffic hum");
+  if (t.includes("traffic") || t.includes("vehicle") || t.includes("motor") || t.includes("engine")) {
+    bedSounds.push("distant vehicle traffic hum");
   }
-  if (t.includes("wind")) {
-    bedSounds.push("gentle wind");
+  if (t.includes("wind") || t.includes("breeze")) {
+    bedSounds.push("gentle wind through architecture");
   }
-  if (t.includes("cicada") || t.includes("insect")) {
-    bedSounds.push("insect drone");
+  if (t.includes("cicada") || t.includes("insect") || t.includes("cricket")) {
+    bedSounds.push("insect drone and chorus");
+  }
+  if (t.includes("fountain") || t.includes("splash")) {
+    bedSounds.push("water fountain continuous flow");
   }
 
   if (bedSounds.length === 0) {
@@ -255,17 +119,23 @@ function buildTexturePrompt(evidenceText, context, normalized, place, year) {
   const t = evidenceText.toLowerCase();
   let textureSounds = [];
 
-  if (t.includes("market") || t.includes("vendor")) {
+  if (t.includes("market") || t.includes("vendor") || t.includes("hawking")) {
     textureSounds.push("distant market murmur");
   }
-  if (t.includes("crowd") || t.includes("people")) {
+  if (t.includes("crowd") || t.includes("people") || t.includes("chatter")) {
     textureSounds.push("scattered crowd murmur");
   }
   if (t.includes("rain") || t.includes("monsoon")) {
     textureSounds.push("rain on surfaces");
   }
-  if (t.includes("footstep") || t.includes("walking")) {
+  if (t.includes("footstep") || t.includes("walking") || t.includes("geta")) {
     textureSounds.push("footsteps on pavement");
+  }
+  if (t.includes("clinking") || t.includes("clatter")) {
+    textureSounds.push("metal and glass clinking");
+  }
+  if (t.includes("bird") || t.includes("crow")) {
+    textureSounds.push("distant bird calls");
   }
 
   if (textureSounds.length === 0) {
@@ -279,17 +149,20 @@ function buildHumanPrompt(evidenceText, context, normalized, place, year) {
   const t = evidenceText.toLowerCase();
   let humanSounds = [];
 
-  if (t.includes("vendor") || t.includes("selling")) {
+  if (t.includes("vendor") || t.includes("selling") || t.includes("hawking")) {
     humanSounds.push("distant vendor calls");
   }
-  if (t.includes("market") || t.includes("barter")) {
+  if (t.includes("market") || t.includes("barter") || t.includes("haggling")) {
     humanSounds.push("market bartering murmur");
   }
-  if (t.includes("conversation") || t.includes("talking")) {
+  if (t.includes("conversation") || t.includes("talking") || t.includes("chatter")) {
     humanSounds.push("scattered conversations");
   }
-  if (t.includes("religious") || t.includes("prayer")) {
+  if (t.includes("prayer") || t.includes("chant") || t.includes("azaan") || t.includes("ezan")) {
     humanSounds.push("distant religious chant");
+  }
+  if (t.includes("singing") || t.includes("music")) {
+    humanSounds.push("distant musical performance");
   }
 
   if (humanSounds.length === 0) {
@@ -306,29 +179,29 @@ function buildEventsFromEvidence(fragments, context) {
   for (const fragment of fragments || []) {
     const text = (fragment.text || "").toLowerCase();
 
-    if (text.includes("bell") && !seenEvents.has("church_bell")) {
+    if ((text.includes("bell") || text.includes("tolling") || text.includes("chiming")) && !seenEvents.has("bell")) {
       events.push({
-        name: "church_bell",
-        prompt: `${context.culture} church bell tolling, ${context.period}, single strike`,
+        name: "bell",
+        prompt: `${context.culture} bell tolling, ${context.period}, single strike, resonant`,
         durationSeconds: 3,
         loop: false,
         weight: 0.3,
       });
-      seenEvents.add("church_bell");
+      seenEvents.add("bell");
     }
 
-    if ((text.includes("horn") || text.includes("train")) && !seenEvents.has("train_horn")) {
+    if ((text.includes("horn") || text.includes("foghorn") || text.includes("whistle")) && !seenEvents.has("horn")) {
       events.push({
-        name: "train_horn",
-        prompt: `${context.culture} train or ferry horn, distant, ${context.period}`,
+        name: "horn",
+        prompt: `${context.culture} distant horn or whistle, ${context.period}`,
         durationSeconds: 2,
         loop: false,
         weight: 0.25,
       });
-      seenEvents.add("train_horn");
+      seenEvents.add("horn");
     }
 
-    if (text.includes("shout") || text.includes("call") && !seenEvents.has("street_call")) {
+    if ((text.includes("shout") || text.includes("call") || text.includes("vendor")) && !seenEvents.has("street_call")) {
       events.push({
         name: "street_call",
         prompt: `${context.culture} street vendor call, distant, ${context.period}`,
@@ -339,18 +212,29 @@ function buildEventsFromEvidence(fragments, context) {
       seenEvents.add("street_call");
     }
 
-    if (text.includes("music") || text.includes("drum") && !seenEvents.has("music_distant")) {
+    if ((text.includes("music") || text.includes("drum") || text.includes("accordion")) && !seenEvents.has("music")) {
       events.push({
-        name: "music_distant",
+        name: "music",
         prompt: `${context.culture} distant music or drumming, ${context.period}`,
         durationSeconds: 4,
         loop: false,
         weight: 0.15,
       });
-      seenEvents.add("music_distant");
+      seenEvents.add("music");
     }
 
-    if (events.length >= 4) break;
+    if ((text.includes("bird") || text.includes("crow") || text.includes("koel")) && !seenEvents.has("bird_call")) {
+      events.push({
+        name: "bird_call",
+        prompt: `${context.culture} bird call, natural, ${context.period}`,
+        durationSeconds: 2,
+        loop: false,
+        weight: 0.15,
+      });
+      seenEvents.add("bird_call");
+    }
+
+    if (events.length >= 5) break;
   }
 
   if (events.length === 0) {
@@ -366,16 +250,7 @@ function buildEventsFromEvidence(fragments, context) {
   return events;
 }
 
-function safeJsonParse(text) {
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return null;
-
-  try {
-    return JSON.parse(jsonMatch[0]);
-  } catch (e) {
-    return null;
-  }
-}
+// ─── Validation & coercion ──────────────────────────────────────────────
 
 function validateSoundscapePlan(plan) {
   return (

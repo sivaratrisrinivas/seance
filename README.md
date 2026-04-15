@@ -20,19 +20,17 @@ Every reconstruction is stored in Turbopuffer, so repeat visits load instantly f
 
 ## How It Works
 
-```
-User Input → Validation → Evidence Extraction → Normalization → Soundscape Planning
-                                                                        ↓
-                    Artifact Page ← Storage ← Audio Generation ← Prompt Building
+```text
+User Input → Validation → Consolidated Gemini Extraction → Prompt Building
+                                                                ↓
+                     Artifact Page ← Storage ← Parallel Audio Generation
 ```
 
-1. **Evidence extraction** — Looks up pre-researched historical sources for each place-year combination, with Gemini API fallback for unknown queries
-2. **Normalization** — Structures raw evidence into typed fragments (bed/event/texture) with confidence scores via Gemini
-3. **Soundscape planning** — Plans layer durations, prompts, and event timing via Gemini
-4. **Prompt building** — Converts plans into constrained prompts that avoid modern sounds or dramatic scoring
-5. **Audio generation** — Creates three audio layers using ElevenLabs Sound Effects API
-6. **Storage** — Saves artifacts to Turbopuffer for instant retrieval; large audio blobs overflow to Cloudflare R2
-7. **Playback** — Renders a mixable audio experience with trust indicators showing evidence confidence
+1. **Evidence extraction & planning** — Uses a consolidated "mega-pipeline" via Gemini to extract sensory evidence, normalize it, and build a soundscape plan all in a single API call (with in-memory caching and automatic retries).
+2. **Prompt building** — Converts the resulting plans into tightly constrained prompts (max 950 chars) that avoid modern sounds or dramatic scoring, adjusting the historical period based purely on the target year.
+3. **Parallel audio generation** — Simultaneously creates three audio layers (Bed, Texture, Human/Event) using ElevenLabs Sound Effects API via `Promise.allSettled` to minimize latency.
+4. **Storage** — Saves artifacts using case-insensitive keys to Turbopuffer, so identical queries load instantly instead of regenerating. Large audio blobs overflow to Cloudflare R2.
+5. **Playback** — Renders a mixable audio visualizer in the browser (Vanilla Web Audio API), along with clear trust indicators showing evidence confidence.
 
 ### Tech Stack
 
@@ -93,15 +91,17 @@ seance/
 │   ├── handle-request.js          # Request router & pipeline orchestrator
 │   ├── query-validation.js        # Input validation (place, year)
 │   ├── evidence-extractor.js      # Historical evidence lookup
-│   ├── reconstruction-metadata.js # Gemini fallback for unknown places
-│   ├── normalize-evidence.js      # Evidence → typed fragments (async, Gemini)
-│   ├── plan-soundscape.js         # Fragments → layer plan (async, Gemini)
+│   ├── reconstruction-metadata.js # Reconstruction metadata merging
+│   ├── normalize-evidence.js      # Evidence → typed fragments
+│   ├── plan-soundscape.js         # Fragments → layer plan
 │   ├── prompt-builder.js          # Plan → ElevenLabs prompts
-│   ├── generate-layers.js         # ElevenLabs API + R2 upload
-│   ├── gemini-client.js           # Google Gemini API client
+│   ├── generate-layers.js         # Parallel ElevenLabs API + R2 upload
+│   ├── gemini-pipeline.js         # Single consolidated Gemini mega-call
+│   ├── gemini-client.js           # Generic Gemini API client
 │   ├── turbopuffer-client.js      # Turbopuffer storage client
 │   ├── generation-job.js          # Job state machine + single-flight
 │   ├── rate-limiter.js            # Sliding window rate limiter
+│   ├── place-aliases.js           # Unified place alias mapping
 │   ├── place-reinterpretation.js  # Anachronistic place name handling
 │   ├── artifact-store.js          # In-memory artifact provenance store
 │   ├── render-homepage.js         # Homepage template
@@ -136,15 +136,15 @@ The generation pipeline runs as an async background job with the following stage
 | Stage | Description | Module |
 |-------|-------------|--------|
 | `PENDING` | Job created, awaiting start | `generation-job.js` |
-| `EVIDENCE` | Extracting historical evidence | `evidence-extractor.js` → `reconstruction-metadata.js` |
+| `EVIDENCE` | Extracting historical evidence map | `gemini-pipeline.js` → `reconstruction-metadata.js` |
 | `NORMALIZING` | Structuring evidence fragments | `normalize-evidence.js` |
 | `PLANNING` | Planning soundscape layers | `plan-soundscape.js` |
 | `PROMPTS` | Building generation prompts | `prompt-builder.js` |
-| `GENERATING` | Calling ElevenLabs API | `generate-layers.js` |
+| `GENERATING` | Parallel ElevenLabs API Calls | `generate-layers.js` |
 | `STORING` | Saving to Turbopuffer/R2 | `turbopuffer-client.js` |
 | `COMPLETED` | Artifact ready for playback | — |
 
-The `/generating` page polls job status and shows real-time stage progress.
+The `/generating` page polls job status and shows real-time percentage progress. Background auto-cleanup handles old jobs.
 
 ## Safety & Moderation
 

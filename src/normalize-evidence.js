@@ -1,31 +1,61 @@
+/**
+ * normalize-evidence.js — Evidence normalization.
+ *
+ * Converts raw evidence items into a rich, structured format suitable for
+ * soundscape planning. Uses semantic keyword groups for better extraction.
+ *
+ * In the platonic pipeline, Gemini normalization is handled by gemini-pipeline.js.
+ * This module focuses on LOCAL normalization (hardcoded and fallback paths).
+ */
+
 import { isConfigured as geminiIsConfigured } from "./gemini-client.js";
 
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
-const BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+// ─── Semantic keyword groups ────────────────────────────────────────────
 
-const DEFAULT_DURATION = {
-  bed: 20,
-  texture: 20,
-  human: 15,
-  event: 3,
+const SOUND_TAXONOMY = {
+  bells: ["bell", "tolling", "chiming", "pealing", "gong", "chime", "carillon", "peal"],
+  horns: ["horn", "foghorn", "honk", "klaxon", "blare", "siren", "whistle"],
+  engines: ["engine", "motor", "diesel", "steam", "traction", "locomotive", "putt"],
+  voices: ["voice", "chatter", "murmur", "shout", "call", "cry", "conversation", "announcement", "hawking", "bartering", "haggling", "singing", "chant"],
+  music: ["music", "drum", "accordion", "guitar", "trumpet", "flute", "piano", "bandoneon", "tabla", "sitar", "harmonica"],
+  nature: ["rain", "wind", "thunder", "wave", "ocean", "river", "bird", "cicada", "insect", "cricket", "crow", "creek"],
+  transport: ["train", "metro", "subway", "tram", "trolley", "bus", "taxi", "rickshaw", "carriage", "cart", "bicycle"],
+  impact: ["hammer", "clatter", "clang", "bang", "crack", "creak", "grind", "screech", "rattle", "clinking"],
+  water: ["splash", "fountain", "drip", "gurgle", "flow", "lap", "ripple", "bubbling"],
+  footsteps: ["footstep", "walking", "geta", "sandal", "heel", "boot", "clog"],
 };
+
+const ATMOSPHERE_KEYWORDS = {
+  rainy: ["rain", "monsoon", "drizzle", "downpour", "storm", "wet"],
+  misty: ["fog", "mist", "haze", "morning", "dawn"],
+  bustling: ["busy", "market", "crowd", "festival", "commerce", "trade"],
+  calm: ["quiet", "evening", "serene", "peaceful", "twilight"],
+  industrial: ["factory", "machinery", "forge", "workshop", "assembly"],
+  sacred: ["temple", "church", "mosque", "shrine", "prayer", "worship"],
+  maritime: ["port", "dock", "harbor", "wharf", "pier", "ship", "boat", "ferry"],
+};
+
+const TIME_KEYWORDS = {
+  dawn: ["dawn", "sunrise", "first light", "daybreak"],
+  morning: ["morning", "breakfast", "commute"],
+  afternoon: ["afternoon", "midday", "noon", "lunch"],
+  evening: ["evening", "sunset", "dusk", "twilight"],
+  night: ["night", "midnight", "late", "dark"],
+};
+
+// ─── Main normalize ─────────────────────────────────────────────────────
 
 export async function normalizeEvidence({ place, year, rawEvidence, confidence }) {
   if (!rawEvidence || rawEvidence.length === 0) {
     return createMinimalNormalized({ place, year, confidence });
   }
 
-  const hasHardcoded = rawEvidence.some(e => e.source !== "gemini");
-  if (hasHardcoded) {
-    return normalizeHardcodedEvidence({ place, year, rawEvidence, confidence });
+  // If we have a pre-normalized result from the Gemini pipeline, detect it
+  if (rawEvidence._preNormalized) {
+    return rawEvidence._preNormalized;
   }
 
-  if (rawEvidence.some(e => e.source === "gemini") && geminiIsConfigured()) {
-    return await normalizeWithGemini({ place, year, rawEvidence, confidence });
-  }
-
-  return normalizeWithRules({ place, year, rawEvidence, confidence });
+  return normalizeWithSemanticRules({ place, year, rawEvidence, confidence });
 }
 
 function createMinimalNormalized({ place, year, confidence }) {
@@ -50,158 +80,102 @@ function createMinimalNormalized({ place, year, confidence }) {
   };
 }
 
-function normalizeHardcodedEvidence({ place, year, rawEvidence, confidence }) {
+// ─── Semantic rule-based normalization ──────────────────────────────────
+
+function normalizeWithSemanticRules({ place, year, rawEvidence, confidence }) {
   const fragments = rawEvidence.map(e => ({
     text: e.description || "",
     source: e.source || "unknown",
     sourceType: mapSourceToType(e.source),
     soundCues: extractSoundCues(e.description),
-    atmosphereCues: [],
+    atmosphereCues: extractAtmosphereCues(e.description),
     humanActivityCues: extractHumanActivity(e.description),
     timeOfDay: inferTimeOfDay(e.description),
     reliability: e.confidence || 0.7,
   }));
 
   const allDescriptions = rawEvidence.map(e => e.description).join(" ");
+  const allText = allDescriptions.toLowerCase();
+
+  // Derive confidence from actual evidence quality
+  const avgReliability = fragments.reduce((sum, f) => sum + f.reliability, 0) / fragments.length;
+  const derivedConfidence = confidence === "high" ? Math.max(avgReliability, 0.8) :
+    confidence === "medium" ? Math.max(avgReliability * 0.85, 0.5) :
+    confidence === "gemini" ? Math.max(avgReliability, 0.6) :
+    Math.max(avgReliability * 0.7, 0.3);
+
+  // Derive emotional tone from atmosphere + density
+  const atmosphere = extractAtmosphereList(allText);
+  const density = calculateDensity(rawEvidence);
+  const emotionalTone = deriveEmotionalTone(atmosphere, density);
 
   return {
     place: place,
     year: parseInt(year),
     resolvedPlace: place,
     historicalAliases: [],
-    confidence: confidence === "high" ? 0.9 : confidence === "medium" ? 0.65 : 0.45,
-    evidence_quality: confidence === "high" ? "strong" : confidence === "medium" ? "moderate" : "weak",
+    confidence: derivedConfidence,
+    evidence_quality: derivedConfidence >= 0.8 ? "strong" : derivedConfidence >= 0.5 ? "moderate" : "weak",
     evidenceFragments: fragments,
-    dominantSounds: extractSounds(allDescriptions, "dominant"),
-    backgroundTextures: extractSounds(allDescriptions, "texture"),
-    intermittentEvents: extractSounds(allDescriptions, "event"),
+    dominantSounds: extractByTaxonomy(allText, ["engines", "transport", "bells", "water"]),
+    backgroundTextures: extractByTaxonomy(allText, ["nature", "footsteps", "impact"]),
+    intermittentEvents: extractByTaxonomy(allText, ["bells", "horns", "voices"]),
     humanActivity: extractHumanActivityList(rawEvidence),
-    atmosphere: extractAtmosphere(allDescriptions),
-    timeOfDay: inferTimeOfDay(allDescriptions) || "unknown",
-    density: calculateDensity(rawEvidence),
-    emotionalTone: [],
+    atmosphere,
+    timeOfDay: aggregateTimeOfDay(fragments),
+    density,
+    emotionalTone,
     reliabilityNotes: fragments.map(f => `${f.source}: reliability ${f.reliability.toFixed(2)}`),
     gaps: [],
   };
 }
 
-function normalizeWithRules({ place, year, rawEvidence, confidence }) {
-  const fragments = rawEvidence.map(e => ({
-    text: e.description || "",
-    source: e.source || "gemini",
-    sourceType: "inferred",
-    soundCues: extractSoundCues(e.description),
-    atmosphereCues: [],
-    humanActivityCues: extractHumanActivity(e.description),
-    timeOfDay: "",
-    reliability: e.confidence || 0.5,
-  }));
+// ─── Taxonomy-based extraction ──────────────────────────────────────────
 
-  const allDescriptions = rawEvidence.map(e => e.description).join(" ");
-
-  return {
-    place: place,
-    year: parseInt(year),
-    resolvedPlace: place,
-    historicalAliases: [],
-    confidence: 0.5,
-    evidence_quality: "moderate",
-    evidenceFragments: fragments,
-    dominantSounds: extractSounds(allDescriptions, "dominant"),
-    backgroundTextures: extractSounds(allDescriptions, "texture"),
-    intermittentEvents: extractSounds(allDescriptions, "event"),
-    humanActivity: extractHumanActivityList(rawEvidence),
-    atmosphere: extractAtmosphere(allDescriptions),
-    timeOfDay: "unknown",
-    density: "moderate",
-    emotionalTone: [],
-    reliabilityNotes: ["AI-generated evidence - confidence moderate"],
-    gaps: [],
-  };
-}
-
-async function normalizeWithGemini({ place, year, rawEvidence, confidence }) {
-  const prompt = `You are a historical soundscape normalizer. Convert raw evidence into strict JSON.
-
-PLACE: ${place}
-YEAR: ${year}
-
-EVIDENCE:
-${rawEvidence.map(e => `- ${e.description} (source: ${e.source}, confidence: ${e.confidence})`).join("\n")}
-
-OUTPUT JSON (no markdown, just the JSON object):
-{
-  "place": "${place}",
-  "year": ${year},
-  "resolvedPlace": "...",
-  "historicalAliases": [],
-  "confidence": 0.0-1.0,
-  "evidenceFragments": [{"text": "...", "source": "...", "sourceType": "...", "soundCues": [], "atmosphereCues": [], "humanActivityCues": [], "timeOfDay": "", "reliability": 0.0}],
-  "dominantSounds": [],
-  "backgroundTextures": [],
-  "intermittentEvents": [],
-  "humanActivity": [],
-  "atmosphere": [],
-  "timeOfDay": "",
-  "density": "sparse|moderate|dense",
-  "emotionalTone": [],
-  "reliabilityNotes": []
-}`;
-
-  try {
-    const response = await fetch(
-      `${BASE_URL}/${GEMINI_MODEL}:generateContent?key=${GOOGLE_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.3, maxOutputTokens: 4096 },
-        }),
+function extractByTaxonomy(text, categories) {
+  const results = new Set();
+  for (const category of categories) {
+    const keywords = SOUND_TAXONOMY[category] || [];
+    for (const kw of keywords) {
+      if (text.includes(kw)) {
+        results.add(kw);
       }
-    );
-
-    const result = await response.json();
-    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const parsed = safeJsonParse(text);
-
-    if (parsed && validateNormalizedEvidence(parsed)) {
-      return parsed;
     }
-  } catch (e) {
-    console.warn("[normalize-evidence] Gemini normalization failed:", e.message);
   }
-
-  return normalizeWithRules({ place, year, rawEvidence, confidence });
-}
-
-function mapSourceToType(source) {
-  const typeMap = {
-    historicalRecording: "historical_audio",
-    oralHistory: "testimonial",
-    academicResearch: "scholarly",
-    newspaperArchive: "documentary",
-    gemini: "inferred",
-  };
-  return typeMap[source] || "unknown";
+  return Array.from(results);
 }
 
 function extractSoundCues(description) {
+  const desc = (description || "").toLowerCase();
   const cues = [];
-  const sounds = ["bell", "horn", "engine", "voice", "chatter", "music", "drum", "rain", "wind", "cart", "footstep", "metal", "horn", "scream", "shout"];
-  const desc = description.toLowerCase();
-  for (const sound of sounds) {
-    if (desc.includes(sound)) {
-      cues.push(sound);
+  for (const [category, keywords] of Object.entries(SOUND_TAXONOMY)) {
+    for (const kw of keywords) {
+      if (desc.includes(kw)) {
+        cues.push(kw);
+      }
     }
   }
-  return cues;
+  return [...new Set(cues)];
+}
+
+function extractAtmosphereCues(description) {
+  const desc = (description || "").toLowerCase();
+  const cues = [];
+  for (const [atmo, keywords] of Object.entries(ATMOSPHERE_KEYWORDS)) {
+    for (const kw of keywords) {
+      if (desc.includes(kw)) {
+        cues.push(atmo);
+        break;
+      }
+    }
+  }
+  return [...new Set(cues)];
 }
 
 function extractHumanActivity(description) {
-  const activities = ["vendor", "market", "crowd", "walking", "talking", "selling", "buying", "working", "children"];
+  const activities = ["vendor", "market", "crowd", "walking", "talking", "selling", "buying", "working", "children", "playing", "haggling", "bartering", "praying", "singing", "dancing"];
   const activityList = [];
-  const desc = description.toLowerCase();
+  const desc = (description || "").toLowerCase();
   for (const activity of activities) {
     if (desc.includes(activity)) {
       activityList.push(activity);
@@ -211,55 +185,63 @@ function extractHumanActivity(description) {
 }
 
 function extractHumanActivityList(evidence) {
-  const activities = [];
+  const activities = new Set();
   for (const e of evidence) {
     const desc = (e.description || "").toLowerCase();
-    if (desc.includes("vendor") || desc.includes("market") || desc.includes("crowd")) {
-      activities.push("market_activity");
+    if (desc.includes("vendor") || desc.includes("market") || desc.includes("crowd") || desc.includes("haggling")) {
+      activities.add("market_activity");
     }
-    if (desc.includes("train") || desc.includes("metro") || desc.includes("transport")) {
-      activities.push("transport");
+    if (desc.includes("train") || desc.includes("metro") || desc.includes("tram") || desc.includes("bus") || desc.includes("rickshaw")) {
+      activities.add("transport");
     }
-    if (desc.includes("religious") || desc.includes("bell") || desc.includes("prayer")) {
-      activities.push("religious");
+    if (desc.includes("religious") || desc.includes("bell") || desc.includes("prayer") || desc.includes("temple") || desc.includes("mosque") || desc.includes("church")) {
+      activities.add("religious");
     }
-  }
-  return [...new Set(activities)];
-}
-
-function extractSounds(text, category) {
-  const soundMap = {
-    dominant: ["train", "metro", "engine", "bell", "fountain", "traffic", "ocean"],
-    texture: ["market", "crowd", "murmur", "wind", "rain", "footstep", "cart"],
-    event: ["bell", "horn", "shout", "announcement", "call", "drum", "music"],
-  };
-
-  const sounds = [];
-  const t = text.toLowerCase();
-  for (const sound of soundMap[category] || []) {
-    if (t.includes(sound)) {
-      sounds.push(sound);
+    if (desc.includes("factory") || desc.includes("workshop") || desc.includes("forge") || desc.includes("assembly")) {
+      activities.add("industrial");
+    }
+    if (desc.includes("music") || desc.includes("drum") || desc.includes("accordion") || desc.includes("guitar")) {
+      activities.add("music");
+    }
+    if (desc.includes("dock") || desc.includes("port") || desc.includes("harbor") || desc.includes("boat") || desc.includes("ferry")) {
+      activities.add("maritime");
     }
   }
-  return sounds;
+  return Array.from(activities);
 }
 
-function extractAtmosphere(text) {
+function extractAtmosphereList(text) {
   const atmospheres = [];
-  const t = text.toLowerCase();
-  if (t.includes("rain") || t.includes("monsoon")) atmospheres.push("rainy");
-  if (t.includes("fog") || t.includes("morning")) atmospheres.push("misty");
-  if (t.includes("busy") || t.includes("market")) atmospheres.push("bustling");
-  if (t.includes("quiet") || t.includes("evening")) atmospheres.push("calm");
-  return atmospheres;
+  for (const [atmo, keywords] of Object.entries(ATMOSPHERE_KEYWORDS)) {
+    for (const kw of keywords) {
+      if (text.includes(kw)) {
+        atmospheres.push(atmo);
+        break;
+      }
+    }
+  }
+  return [...new Set(atmospheres)];
 }
 
 function inferTimeOfDay(text) {
-  const t = text.toLowerCase();
-  if (t.includes("morning") || t.includes("dawn")) return "morning";
-  if (t.includes("evening") || t.includes("sunset")) return "evening";
-  if (t.includes("night")) return "night";
+  const t = (text || "").toLowerCase();
+  for (const [time, keywords] of Object.entries(TIME_KEYWORDS)) {
+    for (const kw of keywords) {
+      if (t.includes(kw)) return time;
+    }
+  }
   return "";
+}
+
+function aggregateTimeOfDay(fragments) {
+  const times = fragments.map(f => f.timeOfDay).filter(t => t && t !== "");
+  if (times.length === 0) return "unknown";
+  // Most common time
+  const counts = {};
+  for (const t of times) {
+    counts[t] = (counts[t] || 0) + 1;
+  }
+  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
 }
 
 function calculateDensity(evidence) {
@@ -268,21 +250,33 @@ function calculateDensity(evidence) {
   return "moderate";
 }
 
-function safeJsonParse(text) {
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return null;
-
-  try {
-    return JSON.parse(jsonMatch[0]);
-  } catch (e) {
-    console.warn("[normalize-evidence] JSON parse failed:", e.message);
-    return null;
-  }
+function deriveEmotionalTone(atmosphere, density) {
+  const tone = [];
+  if (atmosphere.includes("bustling") && density === "dense") tone.push("energetic");
+  if (atmosphere.includes("calm")) tone.push("contemplative");
+  if (atmosphere.includes("sacred")) tone.push("reverent");
+  if (atmosphere.includes("industrial")) tone.push("mechanical");
+  if (atmosphere.includes("maritime")) tone.push("expansive");
+  if (atmosphere.includes("rainy")) tone.push("melancholic");
+  if (atmosphere.includes("misty")) tone.push("atmospheric");
+  if (tone.length === 0) tone.push("ambient");
+  return tone;
 }
 
-function validateNormalizedEvidence(normalized) {
-  return normalized && normalized.place && normalized.year && typeof normalized.confidence === "number";
+function mapSourceToType(source) {
+  const typeMap = {
+    historicalRecording: "historical_audio",
+    soundRecording: "historical_audio",
+    oralHistory: "testimonial",
+    academicResearch: "scholarly",
+    newspaperArchive: "documentary",
+    gemini: "inferred",
+    inferred: "inferred",
+  };
+  return typeMap[source] || "unknown";
 }
+
+// ─── Coercion (single source of truth, imported by plan-soundscape.js) ─
 
 export function coerceNormalizedEvidence(normalized) {
   if (!normalized) {
@@ -295,6 +289,7 @@ export function coerceNormalizedEvidence(normalized) {
     resolvedPlace: normalized.resolvedPlace || normalized.place || "Unknown",
     historicalAliases: Array.isArray(normalized.historicalAliases) ? normalized.historicalAliases : [],
     confidence: typeof normalized.confidence === "number" ? normalized.confidence : 0.5,
+    evidence_quality: normalized.evidence_quality || "moderate",
     evidenceFragments: Array.isArray(normalized.evidenceFragments) ? normalized.evidenceFragments : [],
     dominantSounds: Array.isArray(normalized.dominantSounds) ? normalized.dominantSounds : [],
     backgroundTextures: Array.isArray(normalized.backgroundTextures) ? normalized.backgroundTextures : [],
@@ -305,6 +300,7 @@ export function coerceNormalizedEvidence(normalized) {
     density: normalized.density || "moderate",
     emotionalTone: Array.isArray(normalized.emotionalTone) ? normalized.emotionalTone : [],
     reliabilityNotes: Array.isArray(normalized.reliabilityNotes) ? normalized.reliabilityNotes : [],
+    gaps: Array.isArray(normalized.gaps) ? normalized.gaps : [],
   };
 }
 

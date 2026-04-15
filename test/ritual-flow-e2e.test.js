@@ -81,7 +81,7 @@ test("artifact page shows Recovered from for turbopuffer-cached artifacts", asyn
   const response = await handle({
     method: "GET",
     pathname: "/artifact",
-    searchParams: new URLSearchParams({ place: "Venice", year: "1500" }),
+    searchParams: new URLSearchParams({ place: "Venice", year: "1500", archived: "true" }),
   });
   assert.equal(response.status, 200);
   assert.match(response.body, /Recovered from prior reconstruction/);

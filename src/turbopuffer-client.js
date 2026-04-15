@@ -7,6 +7,13 @@ const BASE_URL = `https://${TURBOPUFFER_REGION}.turbopuffer.com/v2/namespaces/${
 
 const inMemoryStore = new Map();
 
+/**
+ * Normalize artifact IDs to be case-insensitive and whitespace-clean.
+ */
+function normalizeArtifactId(place, year) {
+  return `${place.toLowerCase().trim()}:${String(year).trim()}`;
+}
+
 async function turbopufferRequest(path, method = "POST", body = null) {
   const response = await fetch(`${BASE_URL}${path}`, {
     method,
@@ -27,7 +34,7 @@ async function turbopufferRequest(path, method = "POST", body = null) {
 
 export async function storeArtifact(artifact) {
   if (!TURBOPUFFER_API_KEY) {
-    const id = `${artifact.place}:${artifact.year}`;
+    const id = normalizeArtifactId(artifact.place, artifact.year);
     inMemoryStore.set(id, { 
       ...artifact, 
       storedAt: new Date().toISOString(), 
@@ -38,7 +45,7 @@ export async function storeArtifact(artifact) {
     return { id, mode: "memory", version: artifact.version || SCHEMA_VERSION };
   }
 
-  const id = `${artifact.place}:${artifact.year}`;
+  const id = normalizeArtifactId(artifact.place, artifact.year);
   const version = artifact.version || 1;
   
   const audioLayersRef = artifact.audioLayers ? JSON.stringify(artifact.audioLayers) : null;
@@ -96,8 +103,12 @@ export async function storeArtifact(artifact) {
   return { id, mode: "turbopuffer", version };
 }
 
-export async function getArtifact(place, year) {
-  const id = `${place}:${year}`;
+/**
+ * Retrieve an artifact. Options:
+ * - qualityAware: if true, returns null for mock/partial artifacts (forces regeneration)
+ */
+export async function getArtifact(place, year, { qualityAware = false } = {}) {
+  const id = normalizeArtifactId(place, year);
 
   if (!TURBOPUFFER_API_KEY) {
     const result = inMemoryStore.get(id) || null;
@@ -125,7 +136,25 @@ export async function getArtifact(place, year) {
   }
 
   const fallback = inMemoryStore.get(id) || null;
-  return fallback ? parseArtifactWithDefaults(fallback) : null;
+  const fallbackResult = fallback ? parseArtifactWithDefaults(fallback) : null;
+  if (fallbackResult && qualityAware && isLowQualityArtifact(fallbackResult)) {
+    console.log(`[TURBOPUFFER] Skipping low-quality fallback artifact: ${id}`);
+    return null;
+  }
+  return fallbackResult;
+}
+
+/**
+ * Check if an artifact is low quality (mock audio, partial, or no audio).
+ */
+function isLowQualityArtifact(artifact) {
+  if (!artifact) return true;
+  const audioLayers = artifact.audio_layers;
+  if (!audioLayers) return true;
+  const parsed = typeof audioLayers === "string" ? JSON.parse(audioLayers) : audioLayers;
+  if (parsed.isMock) return true;
+  if (parsed.isPartial) return true;
+  return false;
 }
 
 function parseArtifactWithDefaults(artifact) {
@@ -189,7 +218,7 @@ function parseArtifactWithDefaults(artifact) {
 }
 
 export async function searchSimilar(place, year, limit = 5) {
-  const id = `${place}:${year}`;
+  const id = normalizeArtifactId(place, year);
 
   if (!TURBOPUFFER_API_KEY) {
     const results = [];
