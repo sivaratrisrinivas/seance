@@ -39,6 +39,14 @@ export async function storeArtifact(artifact) {
     isMock: artifact.audioLayers.isMock || false,
   } : null;
   
+  const audioLayersJson = artifact.audioLayers ? JSON.stringify({
+    bed: artifact.audioLayers.bed,
+    event: artifact.audioLayers.event,
+    texture: artifact.audioLayers.texture,
+    isMock: artifact.audioLayers.isMock || false,
+    isPartial: artifact.audioLayers.isPartial,
+  }) : null;
+  
   const doc = {
     id,
     place: artifact.place,
@@ -46,6 +54,7 @@ export async function storeArtifact(artifact) {
     version,
     metadata: artifact.metadata ? JSON.stringify(artifact.metadata) : null,
     evidence: artifact.evidence ? JSON.stringify(artifact.evidence) : null,
+    audio_layers: audioLayersJson,
     audio_layers_ref: audioLayersRef ? JSON.stringify(audioLayersRef) : null,
     prompts: artifact.prompts ? JSON.stringify(artifact.prompts) : null,
     confidence: artifact.confidence || artifact.confidenceScore ? parseFloat(artifact.confidenceScore || 0.85) : null,

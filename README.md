@@ -106,3 +106,20 @@ Protects the generation path from abuse while keeping archive retrieval unlimite
 - **Response**: 429 status with retry-after header and clear error message
 
 The rate limiter uses an in-memory sliding window per identifier and cleans old entries automatically.
+
+## Server-Side Playback
+
+The artifact page plays audio directly without client-side layer mixing:
+
+- **Audio storage**: Generated audio (base64) stored in Turbopuffer for archived playback
+- **Client playback**: Web Audio API decodes embedded base64 audio on page load
+- **Repeat visits**: Archived artifacts are playable immediately without regeneration
+
+## Place Reinterpretation
+
+Handles anachronistic queries where modern place names didn't exist:
+
+- **Modern names**: "Berlin 1870" triggers geographic reinterpretation
+- **Historical context**: Shows "(formerly [historical name])" in UI
+- **Evidence preserved**: Uses historical place for evidence lookup
+- **Trust indicator**: Shows "Reconstructed" note for reinterpreted queries
