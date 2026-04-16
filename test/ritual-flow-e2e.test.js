@@ -108,13 +108,13 @@ test("artifact page shows confidence badge", async () => {
 
 
 
-test("artifact page includes Sever Connection action", async () => {
+test("artifact page includes New Invocation action", async () => {
   const response = await handle({
     method: "GET",
     pathname: "/artifact",
     searchParams: new URLSearchParams({ place: "Venice", year: "1500" }),
   });
-  assert.match(response.body, /Sever Connection/);
+  assert.match(response.body, /New Invocation|Back to Invocation/);
 });
 
 test("artifact page shows Reconstructed from archival descriptions", async () => {

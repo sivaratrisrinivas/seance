@@ -78,7 +78,7 @@ R2_PUBLIC_URL=https://your-domain.com/audio
 
 ```bash
 npm start            # Start server on port 8000
-npm test             # Run all 116 tests
+npm test             # Run all 107 tests
 npm run dev          # Start with file watching (if configured)
 ```
 
@@ -181,10 +181,47 @@ Prevents duplicate generations for the same place-year:
 - **Cooldown**: 30-second cooldown after hitting the limit
 - **Response**: 429 status with clear error message
 
+## Frontend Features
+
+The UI is designed with a dark, atmospheric aesthetic that evokes the ethereal nature of reconstructing historical soundscapes:
+
+### Homepage
+- **Animated placeholder cycling** — Cycles through example queries (Kyoto 1600, Cairo 1920, Paris 1889, etc.) to inspire users
+- **Floating particle system** — Subtle ambient particles create depth
+- **Keyboard shortcuts** — Enter or Cmd+Return to submit; hints shown after delay
+- **Recent queries** — localStorage persistence for quick revisit
+- **Quick examples** — One-click buttons for popular historical queries
+
+### Artifact Playback Page
+- **Listening Modes** — Five selectable audio profiles:
+  - Full Scene (all layers)
+  - Atmosphere (bed + texture)
+  - Street Life (human activity)
+  - Machines (industrial sounds)
+  - Voices (crowd dynamics)
+- **Keyboard controls** — Space for play/pause, arrow keys for seeking
+- **Share functionality** — Native Web Share API with clipboard fallback and toast notification
+- **Nearby years explorer** — Quick navigation to adjacent years
+- **Waveform visualization** — Real-time audio visualization with gradient styling
+- **Progress ring animation** — Pulsing decorative ring synced with playback
+
+### Generating Page
+- **Animated SVG progress ring** — Visual feedback during generation
+- **Cancel button** — Return to homepage mid-generation
+- **Stage descriptions** — Context-aware status messages
+- **Floating particles** — Atmospheric background animation
+
+### Design System
+- **CSS variables** — Consistent theming across all pages
+- **Glass morphism** — Frosted glass effects on cards and navigation
+- **Custom animations** — Fade-in, float, glow, particle effects
+- **Accessible** — Focus states, ARIA labels, reduced-motion support
+- **Custom scrollbars** — Styled to match the dark theme
+
 ## Tests
 
 ```
-116 passing, 0 failing
+107 passing, 0 failing
 ```
 
 Run the full suite:

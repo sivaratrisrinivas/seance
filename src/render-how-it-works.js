@@ -3,211 +3,144 @@ import { sharedHead } from "./shared-styles.js";
 
 export function renderHowItWorks() {
   return `<!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>How It Works — Séance</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
-    <style>
-      ${sharedHead()}
-
-      .how-hero {
-        text-align: center;
-        padding: 20px 0 32px;
-      }
-
-      .how-header {
-        margin: 0 0 12px;
-        font-size: 0.7rem;
-        letter-spacing: 0.22em;
-        text-transform: uppercase;
-        color: var(--text-muted);
-      }
-
-      .how-title {
-        margin: 0;
-        font-family: var(--font-display);
-        font-size: clamp(2rem, 5vw, 2.8rem);
-        font-weight: 400;
-        color: var(--text);
-      }
-
-      .how-intro {
-        margin: 20px auto 0;
-        font-size: 1.1rem;
-        color: var(--text-dim);
-        max-width: 48ch;
-        line-height: 1.7;
-      }
-
-      .how-section {
-        margin: 40px 0 0;
-        padding-top: 28px;
-        border-top: 1px solid var(--border-subtle);
-      }
-
-      .how-section h2 {
-        margin: 0 0 16px;
-        font-family: var(--font-display);
-        font-size: 1.3rem;
-        font-weight: 400;
-        color: var(--text);
-      }
-
-      .how-section > p {
-        margin: 0;
-        font-size: 1rem;
-        color: var(--text-muted);
-        line-height: 1.6;
-      }
-
-      .how-steps {
-        display: grid;
-        gap: 20px;
-        margin: 24px 0 0;
-        padding: 0;
-        list-style: none;
-      }
-
-      .how-step {
-        display: flex;
-        gap: 18px;
-        align-items: flex-start;
-        padding: 20px 22px;
-        border: 1px solid var(--border-subtle);
-        border-radius: 18px;
-        background: rgba(255, 253, 249, 0.02);
-        transition: all 0.2s;
-      }
-
-      .how-step:hover {
-        background: rgba(201, 166, 107, 0.04);
-        border-color: var(--border-medium);
-      }
-
-      .step-number {
-        flex-shrink: 0;
-        width: 36px;
-        height: 36px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        background: var(--accent);
-        color: var(--bg-deep);
-        font: inherit;
-        font-size: 0.95rem;
-        font-weight: 600;
-      }
-
-      .step-content h3 {
-        margin: 0 0 8px;
-        font-family: var(--font-display);
-        font-size: 1.1rem;
-        font-weight: 400;
-        color: var(--text);
-      }
-
-      .step-content p {
-        margin: 0;
-        font-size: 0.95rem;
-        color: var(--text-muted);
-        line-height: 1.6;
-      }
-
-      .tech-stack {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin: 16px 0 0;
-      }
-
-      .tech-item {
-        padding: 8px 16px;
-        border: 1px solid var(--border-subtle);
-        border-radius: 999px;
-        background: rgba(201, 166, 107, 0.04);
-        font-size: 0.85rem;
-        color: var(--text-dim);
-      }
-
-      .nav-link {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        margin-top: 40px;
-        color: var(--accent);
-        font-size: 1rem;
-        text-decoration: none;
-        transition: all 0.2s;
-      }
-
-      .nav-link:hover {
-        transform: translateX(4px);
-      }
-
-      .nav-link::after {
-        content: "→";
-      }
-    </style>
+    ${sharedHead()}
   </head>
-  <body>
-    <main>
-      <div class="shell">
-        <header class="how-hero">
-          <p class="how-header">About</p>
-          <h1 class="how-title">How Séance Works</h1>
-          <p class="how-intro">We reconstruct the soundscape of any place and year by combining archival research with AI audio generation.</p>
-        </header>
+  <body class="bg-[#050505] text-on-background font-body min-h-screen relative">
+    
+    <!-- Ambient Noise Layer -->
+    <div class="noise"></div>
+    
+    <!-- Background -->
+    <div class="fixed inset-0 grain-overlay z-10 pointer-events-none"></div>
+    <div class="fixed inset-0 bg-gradient-to-br from-[#0a0a0a] via-[#050505] to-[#0e0e0e] z-0"></div>
+    
+    <!-- Navigation -->
+    <header class="fixed top-0 left-0 w-full z-50 glass">
+        <div class="flex justify-between items-center px-6 md:px-12 py-4">
+            <a href="/" class="flex items-center gap-3 text-white/60 hover:text-white transition-all duration-500 group">
+                <span class="material-symbols-outlined text-lg group-hover:-translate-x-1 transition-transform">arrow_back</span>
+                <span class="font-label text-xs uppercase tracking-[0.2em]">Back to Invocation</span>
+            </a>
+        </div>
+    </header>
 
-        <section class="how-section">
-          <h2>The Process</h2>
-          <ol class="how-steps">
-            <li class="how-step">
-              <span class="step-number">1</span>
-              <div class="step-content">
-                <h3>Ground in Evidence</h3>
-                <p>We search through historical records, memoirs, and period documentation to understand what the location sounded like in your chosen year.</p>
-              </div>
-            </li>
-            <li class="how-step">
-              <span class="step-number">2</span>
-              <div class="step-content">
-                <h3>Compose the Soundscape</h3>
-                <p>Using AI audio generation, we create an immersive reconstruction combining ambient layers, human activity, and mechanical sounds.</p>
-              </div>
-            </li>
-            <li class="how-step">
-              <span class="step-number">3</span>
-              <div class="step-content">
-                <h3>Archive for Later</h3>
-                <p>Your reconstruction is saved so you can revisit it anytime. Re-running the same query pulls from the archive instead of regenerating.</p>
-              </div>
-            </li>
-          </ol>
+    <main class="relative z-20 pt-28 pb-20 px-6 md:px-12 lg:px-24 max-w-4xl mx-auto">
+        
+        <!-- Hero -->
+        <div class="text-center mb-20 animate-fade-in-up">
+            <p class="font-label uppercase text-[10px] tracking-[0.4em] text-accent/60 mb-4">About</p>
+            <h1 class="font-headline italic text-4xl sm:text-5xl md:text-6xl text-primary tracking-tight mb-6">How Séance Works</h1>
+            <p class="font-body text-lg text-on-surface-variant/70 max-w-2xl mx-auto leading-relaxed">
+                Hear a place the way history felt. We reconstruct the soundscape of any place and year by combining archival research with AI audio generation.
+            </p>
+        </div>
+
+        <!-- Process Section -->
+        <section class="mb-20 animate-fade-in-up stagger-1">
+            <div class="flex items-center gap-4 mb-8">
+                <div class="h-px w-12 bg-white/10"></div>
+                <h2 class="font-label uppercase text-[10px] tracking-[0.4em] text-on-surface-variant/40">The Process</h2>
+            </div>
+            
+            <div class="grid gap-6">
+                <!-- Step 1 -->
+                <div class="glass rounded-2xl p-8 hover:border-white/15 transition-all duration-500 group">
+                    <div class="flex items-start gap-6">
+                        <div class="w-12 h-12 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center flex-shrink-0 group-hover:bg-accent/20 transition-colors">
+                            <span class="font-headline italic text-xl text-accent">I</span>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-headline italic text-xl text-on-surface mb-3 group-hover:text-primary transition-colors">Ground in Evidence</h3>
+                            <p class="font-body text-sm text-on-surface-variant/70 leading-relaxed">
+                                We search through historical records, memoirs, and period documentation to understand what the location sounded like in your chosen year. Each reconstruction is evidence-backed.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="glass rounded-2xl p-8 hover:border-white/15 transition-all duration-500 group">
+                    <div class="flex items-start gap-6">
+                        <div class="w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-cyan-500/20 transition-colors">
+                            <span class="font-headline italic text-xl text-cyan-400">II</span>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-headline italic text-xl text-on-surface mb-3 group-hover:text-primary transition-colors">Compose the Soundscape</h3>
+                            <p class="font-body text-sm text-on-surface-variant/70 leading-relaxed">
+                                Using ElevenLabs audio AI, we create an immersive three-layer reconstruction: ambient atmosphere, environmental texture, and human/mechanical events.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="glass rounded-2xl p-8 hover:border-white/15 transition-all duration-500 group">
+                    <div class="flex items-start gap-6">
+                        <div class="w-12 h-12 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-indigo-500/20 transition-colors">
+                            <span class="font-headline italic text-xl text-indigo-400">III</span>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-headline italic text-xl text-on-surface mb-3 group-hover:text-primary transition-colors">Archive for Later</h3>
+                            <p class="font-body text-sm text-on-surface-variant/70 leading-relaxed">
+                                Your reconstruction is preserved. Revisit anytime — identical queries load from the archive instantly instead of regenerating.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </section>
 
-        <section class="how-section">
-          <h2>Built With</h2>
-          <p>Séance combines modern AI technologies to reconstruct historical soundscapes:</p>
-          <div class="tech-stack">
-            <span class="tech-item">ElevenLabs Audio AI</span>
-            <span class="tech-item">Turbopuffer Vector Search</span>
-            <span class="tech-item">Historical Archives</span>
-          </div>
+        <!-- Tech Stack Section -->
+        <section class="mb-20 animate-fade-in-up stagger-2">
+            <div class="flex items-center gap-4 mb-8">
+                <div class="h-px w-12 bg-white/10"></div>
+                <h2 class="font-label uppercase text-[10px] tracking-[0.4em] text-on-surface-variant/40">Built With</h2>
+            </div>
+            
+            <div class="flex flex-wrap gap-3">
+                <span class="px-5 py-2.5 glass rounded-full font-label text-[10px] uppercase tracking-widest text-on-surface-variant/70 hover:text-accent hover:border-accent/30 transition-all duration-300">
+                    ElevenLabs Audio AI
+                </span>
+                <span class="px-5 py-2.5 glass rounded-full font-label text-[10px] uppercase tracking-widest text-on-surface-variant/70 hover:text-accent hover:border-accent/30 transition-all duration-300">
+                    Turbopuffer
+                </span>
+                <span class="px-5 py-2.5 glass rounded-full font-label text-[10px] uppercase tracking-widest text-on-surface-variant/70 hover:text-accent hover:border-accent/30 transition-all duration-300">
+                    Google Gemini
+                </span>
+                <span class="px-5 py-2.5 glass rounded-full font-label text-[10px] uppercase tracking-widest text-on-surface-variant/70 hover:text-accent hover:border-accent/30 transition-all duration-300">
+                    Cloudflare R2
+                </span>
+            </div>
         </section>
 
-        <section class="how-section">
-          <h2>Why It Matters</h2>
-          <p>Soundscapes shape our memories of place. By reconstructing historical audio environments, we gain a new way to connect with the past — hearing history, not just reading it.</p>
+        <!-- Why It Matters Section -->
+        <section class="mb-20 animate-fade-in-up stagger-3">
+            <div class="flex items-center gap-4 mb-8">
+                <div class="h-px w-12 bg-white/10"></div>
+                <h2 class="font-label uppercase text-[10px] tracking-[0.4em] text-on-surface-variant/40">Why It Matters</h2>
+            </div>
+            
+            <div class="glass rounded-2xl p-8">
+                <p class="font-body text-base text-on-surface-variant/70 leading-relaxed">
+                    Soundscapes shape our memories of place. By reconstructing historical audio environments, we gain a new way to connect with the past — <em class="text-on-surface">hearing history, not just reading it.</em>
+                </p>
+            </div>
         </section>
 
-        <a class="nav-link" href="/">Begin a reconstruction</a>
-      </div>
+        <!-- CTA -->
+        <div class="text-center animate-fade-in-up stagger-4">
+            <a href="/" class="inline-flex items-center gap-3 px-8 py-4 glass rounded-full border border-white/10 hover:border-accent/30 hover:bg-accent/5 transition-all duration-500 group">
+                <span class="font-label text-xs uppercase tracking-widest text-on-surface-variant/70 group-hover:text-accent transition-colors">Begin a Reconstruction</span>
+                <span class="material-symbols-outlined text-sm text-on-surface-variant/50 group-hover:text-accent group-hover:translate-x-1 transition-all">arrow_forward</span>
+            </a>
+        </div>
     </main>
+
   </body>
 </html>`;
 }

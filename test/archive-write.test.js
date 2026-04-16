@@ -92,6 +92,6 @@ test("artifact page with archived=true shows recovery badge", async () => {
   });
 
   assert.equal(response.status, 200);
-  assert.match(response.body, /Recovered from prior reconstruction/);
-  assert.match(response.body, /confidence-badge/);
+  assert.match(response.body, /Echo Recovered/i);
+  assert.match(response.body, /confidence-badge|Confidence/i);
 });

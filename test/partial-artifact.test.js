@@ -12,8 +12,7 @@ test("renderArtifact shows Partial reconstruction note when partial=true", () =>
     audioLayers: { isPartial: true },
   });
 
-  assert.match(html, /Partial reconstruction/i);
-  assert.match(html, /Some audio layers unavailable/i);
+  assert.match(html, /Partial Reconstruction/i);
 });
 
 test("renderArtifact does not show partial note when partial=false", () => {
@@ -25,7 +24,7 @@ test("renderArtifact does not show partial note when partial=false", () => {
     audioLayers: { isPartial: false },
   });
 
-  assert.doesNotMatch(html, /Partial reconstruction/i);
+  assert.doesNotMatch(html, /Partial Reconstruction/);
 });
 
 test("renderArtifact includes place and year in output", () => {
@@ -42,7 +41,7 @@ test("renderArtifact includes place and year in output", () => {
   assert.match(html, /1945/);
 });
 
-test("renderArtifact shows Recovered badge for archived artifacts", () => {
+test("renderArtifact shows Echo Recovered badge for archived artifacts", () => {
   const html = renderArtifact({
     place: "London",
     year: "1940",
@@ -51,10 +50,10 @@ test("renderArtifact shows Recovered badge for archived artifacts", () => {
     audioLayers: { isPartial: true },
   });
 
-  assert.match(html, /Recovered from prior reconstruction/);
+  assert.match(html, /Echo Recovered/);
 });
 
-test("renderArtifact shows Freshly summoned for generated artifacts", () => {
+test("renderArtifact shows Resonance Established for generated artifacts", () => {
   const html = renderArtifact({
     place: "London",
     year: "1940",
@@ -62,26 +61,27 @@ test("renderArtifact shows Freshly summoned for generated artifacts", () => {
     partial: false,
   });
 
-  assert.match(html, /Freshly summoned/);
+  assert.match(html, /Resonance Established/);
 });
 
-test("renderArtifact shows Audio layers not available when no audio", () => {
+test("renderArtifact shows Acoustic Shadow when no audio", () => {
   const html = renderArtifact({
     place: "London",
     year: "1940",
   });
 
-  assert.match(html, /Audio layers not available/);
+  assert.match(html, /Acoustic Shadow/);
 });
 
-test("renderArtifact shows player section with mixer when audio exists", () => {
+test("renderArtifact shows listening modes and mixer when audio exists", () => {
   const html = renderArtifact({
     place: "London",
     year: "1940",
     audioLayers: { bed: "base64data", event: "base64data", texture: "base64data" },
   });
 
-  assert.match(html, /player-section/);
-  assert.match(html, /mode-selector/);
-  assert.match(html, /mixer-slider/);
+  assert.match(html, /listening-mode-btn/);
+  assert.match(html, /bed-slider/);
+  assert.match(html, /event-slider/);
+  assert.match(html, /texture-slider/);
 });

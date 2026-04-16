@@ -4,140 +4,73 @@ import { sharedHead } from "./shared-styles.js";
 export function renderDisambiguation({ place, year, candidates }) {
   const candidatesHtml = candidates
     .map(
-      (c) =>
-        `<li><a href="/ritual?place=${encodeURIComponent(c)}&year=${encodeURIComponent(year)}">
-          <span class="candidate-name">${escapeHtml(c)}</span>
-          <span class="candidate-arrow" aria-hidden="true">→</span>
-        </a></li>`
+      (c, i) =>
+        `<li class="animate-fade-in-up stagger-${i + 1}">
+          <a href="/ritual?place=${encodeURIComponent(c)}&year=${encodeURIComponent(year)}" class="group flex items-center justify-between p-6 glass rounded-2xl border border-white/5 hover:border-accent/30 hover:bg-accent/5 transition-all duration-500">
+            <div class="flex items-center gap-4">
+              <span class="material-symbols-outlined text-xl text-accent/40 group-hover:text-accent transition-colors">location_on</span>
+              <span class="font-headline italic text-xl text-on-surface group-hover:text-primary transition-colors">${escapeHtml(c)}</span>
+            </div>
+            <span class="material-symbols-outlined text-xl text-accent/0 group-hover:text-accent group-hover:translate-x-1 transition-all duration-300">arrow_forward</span>
+          </a>
+        </li>`
     )
     .join("\n");
 
   return `<!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Which ${escapeHtml(place)}?</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
-    <style>
-      ${sharedHead()}
-
-      .disambig-hero {
-        text-align: center;
-        padding: 20px 0 32px;
-      }
-
-      .disambig-header {
-        margin: 0 0 12px;
-        font-size: 0.7rem;
-        letter-spacing: 0.22em;
-        text-transform: uppercase;
-        color: var(--text-muted);
-      }
-
-      .disambig-title {
-        margin: 0;
-        font-family: var(--font-display);
-        font-size: clamp(2rem, 5vw, 2.8rem);
-        font-weight: 400;
-        color: var(--text);
-      }
-
-      .disambig-subtitle {
-        margin: 16px 0 0;
-        font-size: 1.05rem;
-        color: var(--text-dim);
-        line-height: 1.6;
-      }
-
-      .candidate-list {
-        display: grid;
-        gap: 14px;
-        margin: 36px 0 0;
-        padding: 0;
-        list-style: none;
-      }
-
-      .candidate-item {
-        display: block;
-      }
-
-      .candidate-item a {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 20px 24px;
-        border: 1px solid var(--border-subtle);
-        border-radius: 20px;
-        background: rgba(255, 253, 249, 0.02);
-        color: var(--text);
-        font-size: 1.1rem;
-        text-decoration: none;
-        transition: all 0.25s;
-      }
-
-      .candidate-item a:hover,
-      .candidate-item a:focus {
-        background: rgba(201, 166, 107, 0.08);
-        border-color: var(--accent-dim);
-        transform: translateY(-2px);
-      }
-
-      .candidate-name {
-        font-weight: 500;
-      }
-
-      .candidate-arrow {
-        color: var(--accent);
-        font-size: 1.2rem;
-        opacity: 0;
-        transform: translateX(-8px);
-        transition: all 0.25s;
-      }
-
-      .candidate-item a:hover .candidate-arrow {
-        opacity: 1;
-        transform: translateX(0);
-      }
-
-      .back-link {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        margin-top: 32px;
-        color: var(--text-muted);
-        font-size: 0.95rem;
-        text-decoration: none;
-        transition: color 0.2s;
-      }
-
-      .back-link:hover {
-        color: var(--accent);
-      }
-
-      .back-link::before {
-        content: "←";
-      }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Which ${escapeHtml(place)}? — Séance</title>
+    ${sharedHead()}
   </head>
-  <body>
-    <main>
-      <div class="shell">
-        <header class="disambig-hero">
-          <p class="disambig-header">Which location?</p>
-          <h1 class="disambig-title">${escapeHtml(place)}, ${escapeHtml(year)}</h1>
-          <p class="disambig-subtitle">This name refers to multiple places. Choose the one you want to reconstruct.</p>
-        </header>
+  <body class="bg-[#050505] text-on-background font-body min-h-screen relative">
+    
+    <!-- Ambient Noise Layer -->
+    <div class="noise"></div>
+    
+    <!-- Background -->
+    <div class="fixed inset-0 grain-overlay z-10 pointer-events-none"></div>
+    <div class="fixed inset-0 bg-gradient-to-br from-[#0a0a0a] via-[#050505] to-[#0e0e0e] z-0"></div>
+    
+    <!-- Navigation -->
+    <header class="fixed top-0 left-0 w-full z-50 glass">
+        <div class="flex justify-between items-center px-6 md:px-12 py-4">
+            <a href="/" class="flex items-center gap-3 text-white/60 hover:text-white transition-all duration-500 group">
+                <span class="material-symbols-outlined text-lg group-hover:-translate-x-1 transition-transform">arrow_back</span>
+                <span class="font-label text-xs uppercase tracking-[0.2em]">Choose Again</span>
+            </a>
+        </div>
+    </header>
+
+    <main class="relative z-20 pt-28 pb-20 px-6 md:px-12 lg:px-24 max-w-2xl mx-auto">
         
-        <ul class="candidate-list">
+        <!-- Header -->
+        <div class="text-center mb-12 animate-fade-in-up">
+            <p class="font-label uppercase text-[10px] tracking-[0.4em] text-accent/60 mb-4">Clarification Required</p>
+            <h1 class="font-headline italic text-3xl sm:text-4xl md:text-5xl text-primary tracking-tight mb-4">
+                ${escapeHtml(place)}, ${escapeHtml(year)}
+            </h1>
+            <p class="font-body text-sm text-on-surface-variant/60 max-w-md mx-auto">
+                This name refers to multiple places. Select the one you wish to reconstruct.
+            </p>
+        </div>
+        
+        <!-- Candidates -->
+        <ul class="space-y-4">
           ${candidatesHtml}
         </ul>
 
-        <a class="back-link" href="/">Choose a different place</a>
-      </div>
+        <!-- Back Link -->
+        <div class="text-center mt-10 animate-fade-in-up stagger-4">
+            <a href="/" class="inline-flex items-center gap-2 text-on-surface-variant/60 hover:text-accent transition-colors duration-300 group">
+                <span class="material-symbols-outlined text-lg group-hover:-translate-x-1 transition-transform">arrow_back</span>
+                <span class="font-label text-xs uppercase tracking-widest">Choose a different place</span>
+            </a>
+        </div>
     </main>
+
   </body>
 </html>`;
 }

@@ -91,13 +91,13 @@ test("artifact page has main play button", async () => {
   assert.match(response.body, /id="main-play-btn"/);
 });
 
-test("artifact page has Sever Connection action", async () => {
+test("artifact page has back to invocation action", async () => {
   const response = await handle({
     method: "GET",
     pathname: "/artifact",
     searchParams: new URLSearchParams({ place: "Oslo", year: "1987" }),
   });
-  assert.match(response.body, /Sever Connection/);
+  assert.match(response.body, /New Invocation|Back to Invocation/);
 });
 
 test("artifact route accepts opaque ID parameter", async () => {

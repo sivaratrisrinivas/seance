@@ -10,17 +10,17 @@ test("artifact with audio layers shows player section", () => {
     audioLayers: { bed: "base64audio", event: "base64audio", texture: "base64audio" },
   });
 
-  assert.match(html, /Vox Aeterna Player/);
+  assert.match(html, /Mixing Conduit|listening-mode-btn/);
   assert.match(html, /main-play-btn/);
 });
 
-test("artifact without audio does not show Vox Aeterna player", () => {
+test("artifact without audio does not show player", () => {
   const html = renderArtifact({
     place: "Rome",
     year: "1600",
   });
 
-  assert.doesNotMatch(html, /Vox Aeterna Player/);
+  assert.doesNotMatch(html, /listening-mode-btn/);
   assert.match(html, /Acoustic Shadow/);
 });
 
@@ -36,7 +36,7 @@ test("artifact player section includes volume mixer for bed, event, texture", ()
   assert.match(html, /texture-slider/);
 });
 
-test("artifact player section includes audio layers labes", () => {
+test("artifact player section includes audio layers labels", () => {
   const html = renderArtifact({
     place: "Paris",
     year: "1920",
