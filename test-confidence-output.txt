@@ -1,0 +1,530 @@
+[TURBOPUFFER] Querying for: oslo:1987
+[TURBOPUFFER] Found artifact: oslo:1987, version: 2, schema: v2
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Séance - Vox Aeterna</title>
+    
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&family=Space+Grotesk:wght@300;400;500;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+              "primary-fixed": "#735a39",
+              "on-primary-container": "#000000",
+              "outline": "#919191",
+              "on-background": "#e5e2e1",
+              "inverse-surface": "#e5e2e1",
+              "error": "#ffb4ab",
+              "surface-dim": "#131313",
+              "on-secondary-fixed-variant": "#3c3b3b",
+              "secondary-fixed-dim": "#adabaa",
+              "surface-container-highest": "#353534",
+              "on-tertiary-container": "#000000",
+              "surface-container-low": "#1c1b1b",
+              "primary-container": "#f0cfa5",
+              "tertiary-fixed-dim": "#004b70",
+              "primary-fixed-dim": "#594323",
+              "on-primary-fixed-variant": "#ffddb2",
+              "outline-variant": "#474747",
+              "on-surface-variant": "#c6c6c6",
+              "inverse-on-surface": "#313030",
+              "tertiary-container": "#5997c4",
+              "surface-container-lowest": "#0e0e0e",
+              "on-tertiary": "#001e30",
+              "secondary-fixed": "#c9c6c5",
+              "surface-variant": "#353534",
+              "on-surface": "#e5e2e1",
+              "primary": "#ffffff",
+              "on-primary": "#291800",
+              "tertiary": "#cae6ff",
+              "surface-container": "#201f1f",
+              "on-secondary-container": "#e5e2e1",
+              "on-error-container": "#ffdad6",
+              "on-error": "#690005",
+              "tertiary-fixed": "#1c648e",
+              "surface-tint": "#e1c198",
+              "on-secondary-fixed": "#1c1b1b",
+              "on-tertiary-fixed": "#ffffff",
+              "on-secondary": "#1c1b1b",
+              "inverse-primary": "#735a39",
+              "on-primary-fixed": "#ffffff",
+              "secondary-container": "#474646",
+              "background": "#050505",
+              "surface-bright": "#3a3939",
+              "surface": "#131313",
+              "error-container": "#93000a",
+              "surface-container-high": "#2a2a2a",
+              "secondary": "#c9c6c5",
+              "on-tertiary-fixed-variant": "#cae6ff"
+            },
+            "fontFamily": {
+              "headline": ["Noto Serif", "serif"],
+              "body": ["Space Grotesk", "sans-serif"],
+              "label": ["Space Grotesk", "sans-serif"]
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        min-height: max(884px, 100dvh);
+        overflow: hidden;
+      }
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 200, 'GRAD' 0, 'opsz' 24;
+      }
+      .obsidian-void {
+        background: radial-gradient(circle at center, #1a1a1a 0%, #050505 100%);
+      }
+      .needle-line {
+        height: 0.5px;
+        background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%);
+      }
+      .spectral-glow {
+        text-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+      }
+      .vertical-text {
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+      }
+      .smoke-blur {
+        filter: blur(40px);
+        background: radial-gradient(circle, rgba(202, 230, 255, 0.08) 0%, transparent 70%);
+      }
+      .grain-overlay {
+        background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDj3jyhb5qrY9ftxHnrNvrsFKao8TM0oQEN-ok12uccMAR-UKuMiR_cRE9gSPXoUXKQxFKd525138SuXUi4FNfPS3PFBUYRVSr2q10wsPN_lZRhicd6Nap5a6TZeIUApMMx5XJRJ6F2bUNeAvhXPhqtb04obGn3XcKxdVDiqWPgSAGT0gHeahJFX-o0Uw55m0dk_Xn0-rnFEVA7Oqys3EmmQ1QCXmqUG5UDo_x3jTRCJLYWbjn-UjdXofuwFD9Jx_83dpV0WB6GZWrq");
+        opacity: 0.03;
+        pointer-events: none;
+      }
+      .mote-blur {
+        filter: blur(80px);
+      }
+      .glow-pulse {
+        filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.1));
+      }
+      .light-rill {
+        background: linear-gradient(to bottom, transparent, rgba(202, 230, 255, 0.2), transparent);
+      }
+      .shard-blur {
+        backdrop-filter: blur(40px);
+        -webkit-backdrop-filter: blur(40px);
+      }
+    </style>
+  
+  </head>
+  <body class="bg-[#050505] text-on-background font-body selection:bg-tertiary/30 min-h-screen overflow-x-hidden relative">
+    
+    <!-- Fog and Grain Layers -->
+    <div class="fixed inset-0 grain-overlay z-10 pointer-events-none"></div>
+    <div class="fixed inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#0a0a0a] via-[#050505] to-black z-0 pointer-events-none"></div>
+    
+    <!-- Navigation -->
+    <header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-10 py-8 mix-blend-difference">
+        <div class="flex items-center gap-4">
+            <a href="/" class="text-white/60 hover:text-white transition-all duration-700 ease-in-out font-label text-xs uppercase tracking-[0.3em] truncate">
+                Sever Connection
+            </a>
+        </div>
+    </header>
+
+    
+
+    <main class="relative z-20 pt-24 pb-24 px-6 md:px-12 lg:px-24 max-w-7xl mx-auto flex flex-col min-h-[90vh] justify-center">
+        
+        <!-- Header Information -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-8 mb-16 md:mb-24">
+            <div class="md:col-span-8 flex flex-col justify-end">
+                <p class="font-label uppercase text-[10px] tracking-[0.4em] text-on-surface-variant/60 mb-6">Echo Recovered</p>
+                <h1 class="font-headline italic text-4xl sm:text-5xl md:text-7xl lg:text-8xl text-primary tracking-tight leading-none mb-4 break-words">
+                    Oslo
+                </h1>
+                <div class="flex items-center gap-4 sm:gap-6 flex-wrap">
+                    <span class="font-h1 text-2xl sm:text-3xl text-on-surface-variant/50">1987</span>
+                    <div class="h-px w-12 sm:w-24 bg-white/10 hidden sm:block"></div>
+                    <span class="font-label text-[10px] uppercase tracking-widest text-accent/70">Spectral Density: Unknown</span>
+                </div>
+            </div>
+            
+            <div class="md:col-span-4 flex flex-col justify-end">
+                <p class="font-body text-sm text-on-surface-variant/70 leading-relaxed sm:text-right">
+                    Reconstruction based on era-appropriate regional characteristics.
+                    
+                </p>
+            </div>
+        </div>
+
+        
+        <!-- The Mixing Conduit (Vox Aeterna Player) -->
+        <div class="mb-24 md:mb-32">
+            <!-- Master Control -->
+            <div class="flex justify-center mb-12 md:mb-16 relative">
+                <!-- Decorative rings -->
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div id="play-pulse-ring" class="w-20 h-20 md:w-24 md:h-24 rounded-full border border-white/5 scale-100 opacity-50 transition-all duration-1000"></div>
+                </div>
+                
+                <button id="main-play-btn" class="group relative w-20 h-20 md:w-24 md:h-24 rounded-full shard-blur border border-white/10 flex items-center justify-center hover:bg-white/5 hover:border-white/20 transition-all duration-700 ease-out z-10 hover:scale-105 active:scale-95">
+                    <span class="play-icon material-symbols-outlined text-3xl md:text-4xl text-white font-light group-hover:text-cyan-400 transition-colors">play_arrow</span>
+                    <span class="pause-icon material-symbols-outlined text-3xl md:text-4xl text-white font-light group-hover:text-cyan-400 transition-colors hidden">pause</span>
+                </button>
+            </div>
+            
+            <!-- Progress Line -->
+            <div class="w-full max-w-4xl mx-auto mb-12 md:mb-16 group cursor-pointer" id="progress-container">
+                <div class="flex justify-between items-end mb-4 px-2">
+                    <span class="font-mono text-xs text-on-surface-variant/50" id="time-display">00:00</span>
+                    <span class="font-label text-[9px] uppercase tracking-[0.3em] text-on-surface-variant/30 hidden sm:block">Timeline</span>
+                    <span class="font-mono text-xs text-on-surface-variant/50" id="duration-display">--:--</span>
+                </div>
+                <div class="h-1 w-full bg-white/5 rounded-full overflow-hidden relative">
+                    <div id="main-progress" class="absolute top-0 left-0 h-full w-0 bg-gradient-to-r from-transparent via-cyan-900 to-cyan-400 transition-all duration-100 ease-linear"></div>
+                </div>
+                <div class="mt-4 h-8 w-full opacity-20 group-hover:opacity-60 transition-opacity duration-500 overflow-hidden rounded">
+                    <!-- Simple waveform replacement -->
+                    <canvas id="wave-canvas" class="w-full h-full"></canvas>
+                </div>
+            </div>
+
+            <!-- Light Rills (Sliders) -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 w-full max-w-4xl mx-auto px-4">
+                
+                <!-- Rill: Bed -->
+                <div class="flex flex-col gap-4 md:gap-6 group">
+                    <div class="flex justify-between items-center">
+                        <label class="font-headline italic text-lg md:text-xl text-on-surface group-hover:text-primary transition-colors cursor-pointer">Atmosphere</label>
+                        <span class="font-mono text-xs text-on-surface-variant/50" id="bed-val">80%</span>
+                    </div>
+                    <div class="relative h-12 flex items-center">
+                        <input type="range" id="bed-slider" min="0" max="100" value="80" class="absolute w-full h-full opacity-0 cursor-pointer z-20">
+                        <div class="w-full h-[1px] bg-white/10 relative z-10 group-hover:bg-white/20 transition-colors">
+                            <div id="bed-fill" class="absolute top-1/2 -translate-y-1/2 left-0 h-[2px] bg-indigo-400 w-[80%] shadow-[0_0_15px_rgba(129,140,248,0.5)] transition-all duration-75"></div>
+                            <div id="bed-thumb" class="absolute top-1/2 -translate-y-1/2 w-1.5 h-6 bg-white left-[80%] -translate-x-1/2 rounded-full shadow-[0_0_10px_rgba(255,255,255,0.8)] transition-all duration-75 group-hover:scale-y-125 group-active:scale-y-150"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rill: Event -->
+                <div class="flex flex-col gap-4 md:gap-6 group">
+                    <div class="flex justify-between items-center">
+                        <label class="font-headline italic text-lg md:text-xl text-on-surface group-hover:text-primary transition-colors cursor-pointer">Events</label>
+                        <span class="font-mono text-xs text-on-surface-variant/50" id="event-val">70%</span>
+                    </div>
+                    <div class="relative h-12 flex items-center">
+                        <input type="range" id="event-slider" min="0" max="100" value="70" class="absolute w-full h-full opacity-0 cursor-pointer z-20">
+                        <div class="w-full h-[1px] bg-white/10 relative z-10 group-hover:bg-white/20 transition-colors">
+                            <div id="event-fill" class="absolute top-1/2 -translate-y-1/2 left-0 h-[2px] bg-cyan-400 w-[70%] shadow-[0_0_15px_rgba(34,211,238,0.5)] transition-all duration-75"></div>
+                            <div id="event-thumb" class="absolute top-1/2 -translate-y-1/2 w-1.5 h-6 bg-white left-[70%] -translate-x-1/2 rounded-full shadow-[0_0_10px_rgba(255,255,255,0.8)] transition-all duration-75 group-hover:scale-y-125 group-active:scale-y-150"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rill: Texture -->
+                <div class="flex flex-col gap-4 md:gap-6 group">
+                    <div class="flex justify-between items-center">
+                        <label class="font-headline italic text-lg md:text-xl text-on-surface group-hover:text-primary transition-colors cursor-pointer">Texture</label>
+                        <span class="font-mono text-xs text-on-surface-variant/50" id="texture-val">60%</span>
+                    </div>
+                    <div class="relative h-12 flex items-center">
+                        <input type="range" id="texture-slider" min="0" max="100" value="60" class="absolute w-full h-full opacity-0 cursor-pointer z-20">
+                        <div class="w-full h-[1px] bg-white/10 relative z-10 group-hover:bg-white/20 transition-colors">
+                            <div id="texture-fill" class="absolute top-1/2 -translate-y-1/2 left-0 h-[2px] bg-zinc-300 w-[60%] shadow-[0_0_15px_rgba(212,212,216,0.3)] transition-all duration-75"></div>
+                            <div id="texture-thumb" class="absolute top-1/2 -translate-y-1/2 w-1.5 h-6 bg-white left-[60%] -translate-x-1/2 rounded-full shadow-[0_0_10px_rgba(255,255,255,0.8)] transition-all duration-75 group-hover:scale-y-125 group-active:scale-y-150"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        
+
+        <!-- Floating Evidence Shards -->
+        
+    </main>
+    
+    <script>
+      (function() {
+        var audioCtx = null;
+        var isPlaying = false;
+        var audioBuffer = null;
+        var sourceNode = null;
+        var startTime = 0;
+        var pauseTime = 0;
+        var animationId = null;
+        var gainNodes = {};
+
+        var playBtn = document.getElementById('main-play-btn');
+        var playIcon = document.querySelector('.play-icon');
+        var pauseIcon = document.querySelector('.pause-icon');
+        var pulseRing = document.getElementById('play-pulse-ring');
+        var progressContainer = document.getElementById('progress-container');
+        var progressLine = document.getElementById('main-progress');
+        var timeDisplay = document.getElementById('time-display');
+        var durationDisplay = document.getElementById('duration-display');
+        var canvas = document.getElementById('wave-canvas');
+        var ctx = canvas ? canvas.getContext('2d') : null;
+
+        var bedSlider = document.getElementById('bed-slider');
+        var eventSlider = document.getElementById('event-slider');
+        var textureSlider = document.getElementById('texture-slider');
+
+        function initAudio() {
+          if (audioCtx) return;
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          
+          gainNodes.bed = audioCtx.createGain();
+          gainNodes.event = audioCtx.createGain();
+          gainNodes.texture = audioCtx.createGain();
+          
+          gainNodes.bed.connect(audioCtx.destination);
+          gainNodes.event.connect(audioCtx.destination);
+          gainNodes.texture.connect(audioCtx.destination);
+
+          updateGains();
+        }
+
+        function updateGains() {
+          if (!audioCtx) return;
+          var b = parseInt(bedSlider.value) / 100;
+          var e = parseInt(eventSlider.value) / 100;
+          var t = parseInt(textureSlider.value) / 100;
+          gainNodes.bed.gain.value = b * 0.8;
+          gainNodes.event.gain.value = e * 0.7;
+          gainNodes.texture.gain.value = t * 0.6;
+        }
+
+        function bindSliderUI(id) {
+            var slider = document.getElementById(id + '-slider');
+            if(!slider) return;
+            var fill = document.getElementById(id + '-fill');
+            var thumb = document.getElementById(id + '-thumb');
+            var valDisplay = document.getElementById(id + '-val');
+
+            slider.addEventListener('input', function() {
+                var val = this.value;
+                if(fill) fill.style.width = val + '%';
+                if(thumb) thumb.style.left = val + '%';
+                if(valDisplay) valDisplay.textContent = val + '%';
+                updateGains();
+            });
+        }
+
+        bindSliderUI('bed');
+        bindSliderUI('event');
+        bindSliderUI('texture');
+
+        var buffers = { bed: null, event: null, texture: null };
+        var sourceNodes = { bed: null, event: null, texture: null };
+        var mainDuration = 0;
+
+        async function fetchLayer(url) {
+          if (!url) return null;
+          try {
+            if (url.startsWith('mock_')) {
+              var data = generateWhiteNoise(44100 * 10);
+              return await audioCtx.decodeAudioData(data.buffer);
+            }
+            if (url.startsWith('http')) {
+              var response = await fetch('/audio-proxy?url=' + encodeURIComponent(url));
+              if (!response.ok) return null;
+              return await audioCtx.decodeAudioData(await response.arrayBuffer());
+            }
+            var binaryString = atob(url);
+            var data = new Uint8Array(binaryString.length);
+            for (var i = 0; i < binaryString.length; i++) data[i] = binaryString.charCodeAt(i);
+            return await audioCtx.decodeAudioData(data.buffer);
+          } catch(e) {
+            console.warn('Failed to load layer', e);
+            return null;
+          }
+        }
+
+        async function loadAudio() {
+          if (buffers.bed) return; // already loaded
+          
+          var base64Data = {"bed":"https://pub-4d678025db5a4c0287d966ae08a5ae5c.r2.dev/audio/oslo-1987/bed-1776297607432.mp3","texture":"https://pub-4d678025db5a4c0287d966ae08a5ae5c.r2.dev/audio/oslo-1987/texture-1776297607870.mp3","event":"https://pub-4d678025db5a4c0287d966ae08a5ae5c.r2.dev/audio/oslo-1987/human-1776297607167.mp3","isMock":false,"isPartial":false};
+          playBtn.style.opacity = '0.5';
+          playBtn.style.pointerEvents = 'none';
+          if(playIcon) playIcon.innerText = "hourglass_empty";
+          
+          var eventUrl = base64Data.events && base64Data.events.length > 0 ? base64Data.events[0].audioUrl : base64Data.human;
+          
+          const [bedBuf, texBuf, evtBuf] = await Promise.all([
+            fetchLayer(base64Data.bed),
+            fetchLayer(base64Data.texture),
+            fetchLayer(eventUrl)
+          ]);
+          
+          buffers.bed = bedBuf;
+          buffers.texture = texBuf;
+          buffers.event = evtBuf;
+          
+          if (buffers.bed) mainDuration = buffers.bed.duration;
+          else if (buffers.texture) mainDuration = buffers.texture.duration;
+          else if (buffers.event) mainDuration = buffers.event.duration;
+          
+          if (mainDuration && durationDisplay) {
+              var mins = Math.floor(mainDuration / 60);
+              var secs = Math.floor(mainDuration % 60);
+              durationDisplay.textContent = '0' + mins + ':' + String(secs).padStart(2, '0');
+          }
+
+          playBtn.style.opacity = '1';
+          playBtn.style.pointerEvents = 'auto';
+          if(playIcon) playIcon.innerText = "play_arrow";
+        }
+        
+        function generateWhiteNoise(sampleRate, durationSeconds) {
+          var length = sampleRate * durationSeconds;
+          var buffer = new Uint8Array(length);
+          for (var i = 0; i < length; i++) {
+            buffer[i] = Math.random() * 256;
+          }
+          return buffer;
+        }
+
+        function drawWave() {
+          if (!ctx || !buffers.bed) return;
+          var width = canvas.width = canvas.offsetWidth;
+          var height = canvas.height = canvas.offsetHeight;
+          var data = buffers.bed.getChannelData(0);
+          var step = Math.ceil(data.length / width);
+          var amp = height / 2;
+          
+          ctx.clearRect(0, 0, width, height);
+          ctx.beginPath();
+          ctx.moveTo(0, amp);
+          
+          for (var i = 0; i < width; i++) {
+            var min = 1.0;
+            var max = -1.0;
+            for (var j = 0; j < Math.min(step, data.length - (i * step)); j++) {
+              var datum = data[(i * step) + j];
+              if (datum < min) min = datum;
+              if (datum > max) max = datum;
+            }
+            if(isFinite(min) && isFinite(max)) {
+                ctx.lineTo(i, (1 + min) * amp * 0.8);
+                ctx.lineTo(i, (1 + max) * amp * 0.8);
+            }
+          }
+          
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+
+        function updateTime() {
+          if (!isPlaying || !mainDuration) return;
+          var elapsed = (pauseTime + audioCtx.currentTime - startTime) % mainDuration;
+          var pct = (elapsed / mainDuration) * 100;
+          if(progressLine) progressLine.style.width = pct + '%';
+          
+          var curr = Math.floor(elapsed);
+          var mins = Math.floor(curr / 60);
+          var secs = curr % 60;
+          if(timeDisplay) timeDisplay.textContent = '0' + mins + ':' + String(secs).padStart(2, '0');
+          
+          if (pulseRing) {
+              pulseRing.style.transform = 'scale(' + (1 + (Math.sin(elapsed * 2) * 0.1)) + ')';
+              pulseRing.style.opacity = parseFloat(0.2 + (Math.sin(elapsed * 4) * 0.1));
+          }
+
+          animationId = requestAnimationFrame(updateTime);
+        }
+
+        function stopSources() {
+          ['bed', 'event', 'texture'].forEach(function(layer) {
+            if (sourceNodes[layer]) {
+              try { sourceNodes[layer].stop(); } catch(e) {}
+              sourceNodes[layer] = null;
+            }
+          });
+        }
+        
+        function startSources(offset) {
+          ['bed', 'event', 'texture'].forEach(function(layer) {
+            if (buffers[layer]) {
+              var src = audioCtx.createBufferSource();
+              src.buffer = buffers[layer];
+              src.connect(gainNodes[layer]);
+              if (layer === 'bed') {
+                src.onended = function() {
+                  if (isPlaying) {
+                     stopSources();
+                     pauseTime = 0;
+                     startSources(0);
+                     startTime = audioCtx.currentTime;
+                  }
+                };
+              }
+              src.start(0, offset);
+              sourceNodes[layer] = src;
+            }
+          });
+          drawWave();
+        }
+
+        playBtn.addEventListener('click', async function() {
+          initAudio();
+          if (audioCtx.state === 'suspended') {
+              await audioCtx.resume();
+          }
+          await loadAudio();
+          if (!buffers.bed && !buffers.texture && !buffers.event) return;
+
+          if (isPlaying) {
+            stopSources();
+            pauseTime += audioCtx.currentTime - startTime;
+            isPlaying = false;
+            playIcon.classList.remove('hidden');
+            pauseIcon.classList.add('hidden');
+            if(pulseRing) {
+                pulseRing.style.transform = 'scale(1)';
+                pulseRing.style.opacity = '0.5';
+            }
+            cancelAnimationFrame(animationId);
+          } else {
+            startSources(pauseTime);
+            startTime = audioCtx.currentTime;
+            isPlaying = true;
+            playIcon.classList.add('hidden');
+            pauseIcon.classList.remove('hidden');
+            updateTime();
+          }
+        });
+
+        if(progressContainer) {
+            progressContainer.addEventListener('click', function(e) {
+              if (!mainDuration) return;
+              var rect = this.getBoundingClientRect();
+              var pct = (e.clientX - rect.left) / rect.width;
+              var seekTime = pct * mainDuration;
+              if (isPlaying) {
+                stopSources();
+                pauseTime = seekTime;
+                startSources(pauseTime);
+                startTime = audioCtx.currentTime;
+              } else {
+                pauseTime = seekTime;
+                progressLine.style.width = (pct * 100) + '%';
+              }
+            });
+        }
+        
+        window.addEventListener('resize', function(){ if(isPlaying) drawWave(); });
+
+
+      })();
+    </script>
+    
+  </body>
+</html>
+MATCH: false

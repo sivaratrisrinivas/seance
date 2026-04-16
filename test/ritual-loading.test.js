@@ -55,7 +55,7 @@ test("artifact page supports direct navigation without homepage", async () => {
     searchParams: new URLSearchParams({ place: "Old City, Hyderabad", year: "1987" }),
   });
   assert.equal(response.status, 200);
-  assert.match(response.body, /Your seance|Recovered from|Freshly summoned/i);
+  assert.match(response.body, /Séance Active|Echo Recovered|Resonance Established/i);
   assert.match(response.body, /Old City, Hyderabad/);
 });
 
@@ -66,7 +66,7 @@ test("artifact page with archived=true shows Recovered badge", async () => {
     searchParams: new URLSearchParams({ place: "Oslo", year: "1987", archived: "true" }),
   });
   assert.equal(response.status, 200);
-  assert.match(response.body, /Recovered from prior reconstruction/);
+  assert.match(response.body, /Echo Recovered/i);
   assert.doesNotMatch(response.body, /\bcache\b/i);
 });
 
@@ -77,35 +77,27 @@ test("artifact page shows confidence badge", async () => {
     searchParams: new URLSearchParams({ place: "Oslo", year: "1987" }),
   });
   assert.equal(response.status, 200);
-  assert.match(response.body, /confidence-badge/);
+  assert.match(response.body, /Confidence|Spectral Density/i);
 });
 
-test("artifact page shows nearby timelines section", async () => {
+
+
+test("artifact page has main play button", async () => {
   const response = await handle({
     method: "GET",
     pathname: "/artifact",
     searchParams: new URLSearchParams({ place: "Oslo", year: "1987" }),
   });
-  assert.equal(response.status, 200);
-  assert.match(response.body, /Explore nearby timelines/);
+  assert.match(response.body, /id="main-play-btn"/);
 });
 
-test("artifact page has Hear again action", async () => {
+test("artifact page has Sever Connection action", async () => {
   const response = await handle({
     method: "GET",
     pathname: "/artifact",
     searchParams: new URLSearchParams({ place: "Oslo", year: "1987" }),
   });
-  assert.match(response.body, /Hear again/);
-});
-
-test("artifact page has New reconstruction action", async () => {
-  const response = await handle({
-    method: "GET",
-    pathname: "/artifact",
-    searchParams: new URLSearchParams({ place: "Oslo", year: "1987" }),
-  });
-  assert.match(response.body, /New reconstruction/);
+  assert.match(response.body, /Sever Connection/);
 });
 
 test("artifact route accepts opaque ID parameter", async () => {
@@ -116,7 +108,7 @@ test("artifact route accepts opaque ID parameter", async () => {
     searchParams: new URLSearchParams({ id: validId }),
   });
   assert.equal(response.status, 200);
-  assert.match(response.body, /Your seance|From your archive|Freshly summoned|Recovered from/i);
+  assert.match(response.body, /Séance Active|Echo Recovered|Resonance Established/i);
 });
 
 test("ritual route completes with redirect for Venice", async () => {
@@ -135,7 +127,7 @@ test("artifact displays resolved place metadata", async () => {
     searchParams: new URLSearchParams({ place: "Old City, Hyderabad", year: "1987" }),
   });
   assert.equal(response.status, 200);
-  assert.match(response.body, /Old City, Hyderabad.*1987/);
+  assert.match(response.body, /Old City, Hyderabad.*1987/s);
 });
 
 test("ambiguous place triggers disambiguation", async () => {
@@ -157,5 +149,5 @@ test("historical place names are preserved in artifact display", async () => {
     searchParams: new URLSearchParams({ place: "Bombay, British India", year: "1920" }),
   });
   assert.equal(response.status, 200);
-  assert.match(response.body, /Bombay.*1920/);
+  assert.match(response.body, /Bombay.*1920/s);
 });

@@ -52,9 +52,9 @@ test("generating page returns 200 with reconstruction stages", async () => {
     searchParams: new URLSearchParams({ place: "Oslo", year: "1987" }),
   });
   assert.equal(response.status, 200);
-  assert.match(response.body, /Locating place in time/);
-  assert.match(response.body, /Searching for sensory evidence/);
-  assert.match(response.body, /Composing ambient field/);
+  assert.match(response.body, /Stabilizing Sub-frequencies/);
+  assert.match(response.body, /Isolating Temporal Peaks/);
+  assert.match(response.body, /Parsing Granular Residuals/);
 });
 
 test("generating page includes back home link", async () => {
@@ -84,7 +84,7 @@ test("artifact page shows Recovered from for turbopuffer-cached artifacts", asyn
     searchParams: new URLSearchParams({ place: "Venice", year: "1500", archived: "true" }),
   });
   assert.equal(response.status, 200);
-  assert.match(response.body, /Recovered from prior reconstruction/);
+  assert.match(response.body, /Echo Recovered/);
 });
 
 test("artifact page shows Your seance for non-cached artifacts", async () => {
@@ -94,7 +94,7 @@ test("artifact page shows Your seance for non-cached artifacts", async () => {
     searchParams: new URLSearchParams({ place: "UnknownPlace", year: "1800" }),
   });
   assert.equal(response.status, 200);
-  assert.match(response.body, /Your seance/);
+  assert.match(response.body, /Séance Active/);
 });
 
 test("artifact page shows confidence badge", async () => {
@@ -103,26 +103,18 @@ test("artifact page shows confidence badge", async () => {
     pathname: "/artifact",
     searchParams: new URLSearchParams({ place: "Venice", year: "1500" }),
   });
-  assert.match(response.body, /confidence-badge/);
+  assert.match(response.body, /Confidence/i);
 });
 
-test("artifact page shows Explore nearby timelines", async () => {
+
+
+test("artifact page includes Sever Connection action", async () => {
   const response = await handle({
     method: "GET",
     pathname: "/artifact",
     searchParams: new URLSearchParams({ place: "Venice", year: "1500" }),
   });
-  assert.match(response.body, /Explore nearby timelines/);
-});
-
-test("artifact page includes Hear again and New reconstruction actions", async () => {
-  const response = await handle({
-    method: "GET",
-    pathname: "/artifact",
-    searchParams: new URLSearchParams({ place: "Venice", year: "1500" }),
-  });
-  assert.match(response.body, /Hear again/);
-  assert.match(response.body, /New reconstruction/);
+  assert.match(response.body, /Sever Connection/);
 });
 
 test("artifact page shows Reconstructed from archival descriptions", async () => {
@@ -131,7 +123,7 @@ test("artifact page shows Reconstructed from archival descriptions", async () =>
     pathname: "/artifact",
     searchParams: new URLSearchParams({ place: "Venice", year: "1500" }),
   });
-  assert.match(response.body, /Reconstructed from archival descriptions/);
+  assert.match(response.body, /Audio projection constructed from fragmentary archival evidence/);
 });
 
 test("artifact page works with opaque ID parameter", async () => {
@@ -142,7 +134,7 @@ test("artifact page works with opaque ID parameter", async () => {
     searchParams: new URLSearchParams({ id: validId }),
   });
   assert.equal(response.status, 200);
-  assert.match(response.body, /Your seance|Recovered from|Freshly summoned/);
+  assert.match(response.body, /Séance Active|Echo Recovered|Resonance Established/);
 });
 
 test("artifact page handles historical place names", async () => {

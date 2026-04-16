@@ -20,8 +20,8 @@ test("archived artifact shows Recovered from prior reconstruction badge", async 
   });
 
   assert.equal(response.status, 200);
-  assert.match(response.body, /Recovered from prior reconstruction/);
-  assert.match(response.body, /Hyderabad.*1987/);
+  assert.match(response.body, /Echo Recovered/);
+  assert.match(response.body, /Hyderabad.*1987/s);
 });
 
 test("archived artifact avoids cache/hit terminology", async () => {
@@ -36,7 +36,7 @@ test("archived artifact avoids cache/hit terminology", async () => {
   });
 
   assert.equal(response.status, 200);
-  assert.match(response.body, /Recovered from prior reconstruction/);
+  assert.match(response.body, /Echo Recovered/);
   assert.doesNotMatch(response.body, /\bcache\b/i);
 });
 
@@ -57,6 +57,6 @@ test("non-archived artifact shows Your seance badge", async () => {
   });
 
   assert.equal(response.status, 200);
-  assert.match(response.body, /Your seance/);
-  assert.doesNotMatch(response.body, /Recovered from prior reconstruction/);
+  assert.match(response.body, /Séance Active/);
+  assert.doesNotMatch(response.body, /Echo Recovered/);
 });
