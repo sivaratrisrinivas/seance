@@ -28,8 +28,7 @@ import { buildPrompts } from "./prompt-builder.js";
 import { extractEvidence } from "./evidence-extractor.js";
 import { normalizeEvidence, coerceNormalizedEvidence } from "./normalize-evidence.js";
 import { planSoundscape, coerceSoundscapePlan, buildFallbackSoundscapePlan } from "./plan-soundscape.js";
-import { isConfigured as geminiIsConfigured } from "./gemini-client.js";
-import { runGeminiPipeline } from "./gemini-pipeline.js";
+import { runGeminiPipeline, isConfigured as geminiIsConfigured } from "./gemini-pipeline.js";
 import { generateReconstructionMetadata } from "./reconstruction-metadata.js";
 import { createJob, getJob, getInFlightJob, JobState, updateJobState, setInFlightJob } from "./generation-job.js";
 import { checkRateLimit } from "./rate-limiter.js";
@@ -82,6 +81,30 @@ export async function handleRequest({
       headers: { "content-type": "text/html; charset=utf-8" },
       body: renderHowItWorks(),
     };
+  }
+
+  if (method === "GET" && pathname === "/audio-proxy") {
+    const targetUrl = searchParams.get("url");
+    if (!targetUrl || (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://"))) {
+      return { status: 400, headers: {}, body: "Invalid url" };
+    }
+    
+    try {
+      const response = await fetch(targetUrl);
+      if (!response.ok) throw new Error("Fetch failed");
+      const buffer = await response.arrayBuffer();
+      return {
+        status: 200,
+        headers: {
+          "Content-Type": response.headers.get("content-type") || "audio/mpeg",
+          "Cache-Control": "public, max-age=31536000",
+        },
+        body: Buffer.from(buffer),
+      };
+    } catch (e) {
+      console.error("[proxy-audio] Proxy error:", e.message);
+      return { status: 500, headers: {}, body: "Proxy error" };
+    }
   }
 
   if (method === "GET" && pathname === "/disambiguate") {

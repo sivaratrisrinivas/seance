@@ -23,10 +23,10 @@ function truncatePrompt(prompt) {
 // ─── Negative constraints ───────────────────────────────────────────────
 
 const NEGATIVE_CONSTRAINTS = {
-  modern: "no modern electronic or synthetic sounds",
-  film: "not a film score or hollywood style",
-  dramatic: "no dramatic or theatrical presentation",
-  generic: "not generic or stock ambience",
+  modern: "no modern electronic or synthetic sounds, no oscillators",
+  film: "no cinematic score, no musical instruments, no rhythm",
+  dramatic: "no dramatic or theatrical presentation, no narration",
+  generic: "not generic, no stock ambience",
   violence: "no graphic or violent sounds",
   sensitive: "no graphic description, not violent or exploitative",
 };
@@ -103,7 +103,7 @@ function buildBedPrompt(metadata, context) {
   const { place, year, evidence } = metadata;
   const { bed } = extractEvidenceByLayer(evidence);
 
-  let prompt = `${context.culture} ${context.region} urban ambient soundscape, ${place} ${year}`;
+  let prompt = `High-fidelity field-recording, wide stereo. ${context.culture} ${context.region} urban ambient soundscape, ${place} ${year}`;
 
   if (bed.length > 0) {
     const descriptions = bed.map(e => e.description).join(", ");
@@ -128,7 +128,7 @@ function buildEventPrompt(metadata, context) {
   const { place, year, evidence } = metadata;
   const { event } = extractEvidenceByLayer(evidence);
 
-  let prompt = `${context.culture} recurring ${context.period} sounds in ${place}, ${year}`;
+  let prompt = `Indistinct background walla. ${context.culture} recurring ${context.period} soundscape in ${place}, ${year}`;
 
   if (event.length > 0) {
     const descriptions = event.map(e => e.description).join(", ");
@@ -154,7 +154,7 @@ function buildTexturePrompt(metadata, context, confidence) {
   const { place, year, evidence } = metadata;
   const { texture } = extractEvidenceByLayer(evidence);
 
-  let prompt = `${context.culture} subtle environmental texture of ${place}, ${year}`;
+  let prompt = `Detailed mid-ground foley, close-mic. ${context.culture} subtle environmental texture of ${place}, ${year}`;
 
   if (texture.length > 0) {
     const descriptions = texture.map(e => e.description).join(", ");

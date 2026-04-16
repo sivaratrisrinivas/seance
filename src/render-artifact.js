@@ -1,5 +1,5 @@
 import { escapeHtml } from "./html.js";
-import { sharedStyles } from "./shared-styles.js";
+import { sharedHead } from "./shared-styles.js";
 
 const LISTENING_MODES = [
   { id: "full", label: "Full scene", description: "All layers combined" },
@@ -10,31 +10,29 @@ const LISTENING_MODES = [
 ];
 
 const CONFIDENCE_LABELS = {
-  high: "Archive-backed",
-  medium: "Moderate inference",
-  low: "Sparse evidence",
-  gemini: "AI-generated context",
+  high: "High Confidence — Archival Convergence",
+  medium: "Moderate Inference",
+  low: "Sparse Evidence",
+  gemini: "AI Gen Context",
 };
 
 function getConfidenceLabel(confidence) {
-  return CONFIDENCE_LABELS[confidence] ?? "Confidence: unknown";
+  return CONFIDENCE_LABELS[confidence] ?? "Spectral Density: Unknown";
 }
 
 function formatEvidence(evidence) {
   if (!evidence || evidence.length === 0) return "";
   
-  return evidence.slice(0, 6).map((e, i) => `
-    <article class="evidence-card">
-      <p class="evidence-excerpt">${escapeHtml(e.description || e.text || "No description")}</p>
-      <footer class="evidence-meta">
-        ${e.source ? `<span class="evidence-source">${escapeHtml(e.source)}</span>` : ""}
-        ${e.tags ? `
-          <div class="evidence-tags">
-            ${e.tags.split(",").map(t => `<span class="evidence-tag">${escapeHtml(t.trim())}</span>`).join("")}
-          </div>
-        ` : ""}
-      </footer>
-    </article>
+  return evidence.slice(0, 4).map((e, i) => `
+    <div class="shard-blur border border-white/5 rounded-2xl p-6 hover:bg-white/5 transition-colors duration-500 transform hover:-translate-y-1">
+        <p class="font-body text-sm text-on-surface-variant leading-relaxed line-clamp-3">
+            "${escapeHtml(e.description || e.text || "No description")}"
+        </p>
+        <div class="mt-4 flex flex-wrap gap-2">
+            ${e.source ? `<span class="px-2 py-1 bg-white/5 rounded text-[10px] font-label uppercase tracking-widest text-on-surface-variant/80">${escapeHtml(e.source)}</span>` : ""}
+            ${e.tags ? e.tags.split(",").map(t => `<span class="px-2 py-1 bg-accent/10 text-accent rounded text-[10px] font-label uppercase tracking-widest">${escapeHtml(t.trim())}</span>`).join("") : ""}
+        </div>
+    </div>
   `).join("\n");
 }
 
@@ -46,622 +44,169 @@ function getNearbyYears(year) {
 
 export function renderArtifact({ place, year, archived = false, confidence = "high", confidenceScore = null, reinterpretation = null, generated = false, error = null, audioLayers = null, evidence = null, evidenceNote = null, sourceNotes = null, partial = false }) {
   const queryLabel = [place, year].filter(Boolean).join(", ");
-  const headerText = archived ? "Recovered from prior reconstruction" : generated ? "Freshly summoned" : "Your seance";
-  const reinterpretNote = reinterpretation?.reinterpreted
-    ? `<p class="meta-line"><strong>Historically interpreted:</strong> ${escapeHtml(reinterpretation.note)}</p>`
-    : "";
-  
-  const partialNote = partial
-    ? `<p class="meta-line"><strong>Partial reconstruction:</strong> Some audio layers unavailable</p>`
-    : "";
-
+  const headerText = archived ? "Echo Recovered" : generated ? "Resonance Established" : "Séance Active";
   const confidenceLabel = getConfidenceLabel(confidence);
   const hasAudio = audioLayers && (audioLayers.bed || audioLayers.event || audioLayers.texture);
-
   const hasEvidence = evidence && evidence.length > 0;
-  const evidenceSection = hasEvidence ? `
-    <section class="evidence-section">
-      <h2 class="section-title">What this is built from</h2>
-      <div class="evidence-grid">
-        ${formatEvidence(evidence)}
-      </div>
-      ${evidenceNote ? `<p class="evidence-note">${escapeHtml(evidenceNote)}</p>` : ""}
-    </section>
-  ` : "";
-
-  const sourceNote = sourceNotes
-    ? `<p class="meta-line">${escapeHtml(sourceNotes)}</p>`
-    : evidenceNote && !hasEvidence
-      ? `<p class="meta-line">${escapeHtml(evidenceNote)}</p>`
-      : "";
-
-  const nearbyYears = getNearbyYears(year);
-  const nearbySection = nearbyYears.length > 0 ? `
-    <section class="nearby-section">
-      <h2 class="section-title">Explore nearby timelines</h2>
-      <div class="nearby-years">
-        ${nearbyYears.map(y => `<a href="/ritual?place=${encodeURIComponent(place)}&year=${encodeURIComponent(y)}" class="year-link">${y}</a>`).join("\n")}
-      </div>
-    </section>
-  ` : "";
-
-  const audioSection = hasAudio ? `
-    <section class="player-section" aria-label="Audio playback">
-      <div class="mode-selector" role="tablist" aria-label="Listening modes">
-        ${LISTENING_MODES.map((m, i) => `
-          <button 
-            role="tab" 
-            aria-selected="${i === 0 ? 'true' : 'false'}"
-            class="mode-btn ${i === 0 ? 'active' : ''}" 
-            data-mode="${m.id}"
-            aria-controls="player-panel"
-          >
-            <span class="mode-label">${m.label}</span>
-            <span class="mode-desc">${m.description}</span>
-          </button>
-        `).join("\n")}
-      </div>
-      
-      <div class="main-player" id="player-panel" role="tabpanel">
-        <div class="player-visual" aria-hidden="true">
-          <canvas id="wave-canvas"></canvas>
-        </div>
-        <div class="player-controls">
-          <button class="play-btn" id="main-play-btn" aria-label="Play">
-            <svg class="play-icon" viewBox="0 0 24 24" width="28" height="28"><polygon points="6,4 20,12 6,20" fill="currentColor"/></svg>
-            <svg class="pause-icon hidden" viewBox="0 0 24 24" width="28" height="28"><rect x="5" y="4" width="4" height="16" fill="currentColor"/><rect x="15" y="4" width="4" height="16" fill="currentColor"/></svg>
-          </button>
-          <div class="progress-track">
-            <div class="progress-fill" id="main-progress"></div>
-          </div>
-          <span class="time-display" id="time-display">0:00</span>
-        </div>
-        <div class="layer-mixer">
-          <div class="mixer-row">
-            <span class="mixer-label">Bed</span>
-            <input type="range" class="mixer-slider" id="bed-slider" min="0" max="100" value="80" aria-label="Bed volume">
-          </div>
-          <div class="mixer-row">
-            <span class="mixer-label">Events</span>
-            <input type="range" class="mixer-slider" id="event-slider" min="0" max="100" value="70" aria-label="Event volume">
-          </div>
-          <div class="mixer-row">
-            <span class="mixer-label">Texture</span>
-            <input type="range" class="mixer-slider" id="texture-slider" min="0" max="100" value="60" aria-label="Texture volume">
-          </div>
-        </div>
-      </div>
-    </section>
-  ` : `
-    <section class="player-section empty-state">
-      <div class="empty-visual">
-        <div class="empty-wave" aria-hidden="true">
-          <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-        </div>
-      </div>
-      <p class="empty-label">Audio layers not available</p>
-    </section>
-  `;
-
-  const sceneSummary = evidence && evidence.length > 0
-    ? evidence.slice(0, 3).map(e => e.description || e.text).filter(Boolean).join("; ")
-    : null;
 
   const errorMessage = error 
-    ? `<aside class="error-callout"><p>Generation encountered an issue: ${escapeHtml(error)}</p></aside>` 
+    ? `<div class="fixed top-24 left-1/2 -translate-x-1/2 shard-blur border border-red-900/30 text-red-400 px-6 py-3 rounded-full text-xs font-label uppercase tracking-widest z-50">Signal Interference: ${escapeHtml(error)}</div>` 
     : "";
 
   return `<!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${queryLabel} — Séance</title>
-    <meta property="og:title" content="Séance: ${queryLabel}" />
-    <meta property="og:description" content="Hear what ${queryLabel} sounded like" />
-    <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="Séance: ${queryLabel}" />
-    <meta name="twitter:description" content="Hear what ${queryLabel} sounded like" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
-    <style>
-      ${sharedStyles()}
-
-      .artifact-header {
-        text-align: center;
-        padding: 20px 0 32px;
-      }
-
-      .artifact-badge {
-        display: inline-block;
-        margin-bottom: 16px;
-        padding: 6px 14px;
-        border-radius: 999px;
-        background: var(--accent-glow);
-        font-size: 0.7rem;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-        color: var(--accent);
-      }
-
-      .artifact-badge.archived {
-        background: rgba(122, 154, 109, 0.15);
-        color: var(--success);
-      }
-
-      .artifact-title {
-        margin: 0;
-        font-family: var(--font-display);
-        font-size: clamp(2.2rem, 6vw, 3.2rem);
-        font-weight: 400;
-        color: var(--text);
-      }
-
-      .artifact-year {
-        display: inline-block;
-        margin-top: 12px;
-        padding: 8px 16px;
-        background: rgba(201, 166, 107, 0.08);
-        border-radius: 999px;
-        font-family: var(--font-mono);
-        font-size: 1rem;
-        color: var(--accent);
-      }
-
-      .artifact-subtitle {
-        margin: 20px auto 0;
-        font-size: 1.05rem;
-        color: var(--text-dim);
-        font-style: italic;
-        max-width: 48ch;
-        line-height: 1.6;
-      }
-
-      .confidence-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        margin-top: 16px;
-        padding: 6px 12px;
-        border-radius: 999px;
-        background: rgba(201, 166, 107, 0.06);
-        font-size: 0.8rem;
-        color: var(--text-dim);
-      }
-
-      .confidence-badge::before {
-        content: "";
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--accent);
-      }
-
-      .meta-line {
-        margin: 16px auto 0;
-        padding: 14px 18px;
-        border: 1px solid var(--border-subtle);
-        border-radius: 14px;
-        background: rgba(201, 166, 107, 0.04);
-        font-size: 0.92rem;
-        color: var(--text-dim);
-        max-width: 52ch;
-      }
-
-      .meta-line strong {
-        color: var(--text);
-      }
-
-      .section-title {
-        margin: 40px 0 20px;
-        font-size: 0.72rem;
-        letter-spacing: 0.2em;
-        text-transform: uppercase;
-        color: var(--text-muted);
-      }
-
-      .evidence-grid {
-        display: grid;
-        gap: 16px;
-      }
-
-      .evidence-card {
-        padding: 20px 22px;
-        border: 1px solid var(--border-subtle);
-        border-radius: 18px;
-        background: linear-gradient(145deg, var(--bg-elevated) 0%, var(--bg-card) 100%);
-      }
-
-      .evidence-excerpt {
-        margin: 0;
-        font-size: 1rem;
-        line-height: 1.7;
-        color: var(--text);
-        font-style: italic;
-      }
-
-      .evidence-meta {
-        margin-top: 14px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        flex-wrap: wrap;
-      }
-
-      .evidence-source {
-        font-size: 0.8rem;
-        color: var(--text-muted);
-      }
-
-      .evidence-tags {
-        display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
-      }
-
-      .evidence-tag {
-        padding: 3px 8px;
-        border-radius: 4px;
-        background: rgba(201, 166, 107, 0.08);
-        font-size: 0.7rem;
-        color: var(--accent-dim);
-      }
-
-      .evidence-note {
-        margin-top: 16px;
-        font-size: 0.9rem;
-        color: var(--text-muted);
-        font-style: italic;
-      }
-
-      .player-section {
-        margin-top: 40px;
-        padding: 28px;
-        border: 1px solid var(--border-subtle);
-        border-radius: 24px;
-        background: linear-gradient(145deg, var(--bg-elevated) 0%, rgba(30, 24, 18, 0.6) 100%);
-      }
-
-      .player-section.empty-state {
-        text-align: center;
-        padding: 48px 28px;
-      }
-
-      .empty-visual {
-        margin-bottom: 20px;
-      }
-
-      .empty-wave {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 4px;
-        height: 48px;
-      }
-
-      .empty-wave span {
-        width: 4px;
-        background: var(--text-muted);
-        border-radius: 2px;
-        animation: wave 1s ease-in-out infinite;
-      }
-
-      .empty-wave span:nth-child(1) { height: 20%; animation-delay: 0s; }
-      .empty-wave span:nth-child(2) { height: 40%; animation-delay: 0.1s; }
-      .empty-wave span:nth-child(3) { height: 60%; animation-delay: 0.2s; }
-      .empty-wave span:nth-child(4) { height: 80%; animation-delay: 0.3s; }
-      .empty-wave span:nth-child(5) { height: 60%; animation-delay: 0.4s; }
-      .empty-wave span:nth-child(6) { height: 40%; animation-delay: 0.5s; }
-      .empty-wave span:nth-child(7) { height: 20%; animation-delay: 0.6s; }
-
-      @keyframes wave {
-        0%, 100% { transform: scaleY(1); }
-        50% { transform: scaleY(0.5); }
-      }
-
-      .empty-label {
-        color: var(--text-muted);
-        font-size: 0.95rem;
-      }
-
-      .mode-selector {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-bottom: 24px;
-      }
-
-      .mode-btn {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 4px;
-        padding: 12px 16px;
-        border: 1px solid var(--border-subtle);
-        border-radius: 14px;
-        background: transparent;
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-
-      .mode-btn:hover {
-        background: rgba(201, 166, 107, 0.06);
-      }
-
-      .mode-btn.active {
-        background: var(--accent-glow);
-        border-color: var(--accent-dim);
-      }
-
-      .mode-label {
-        font-size: 0.95rem;
-        color: var(--text);
-      }
-
-      .mode-desc {
-        font-size: 0.75rem;
-        color: var(--text-muted);
-      }
-
-      .player-visual {
-        height: 80px;
-        margin-bottom: 20px;
-        background: rgba(13, 10, 6, 0.4);
-        border-radius: 12px;
-        overflow: hidden;
-      }
-
-      .player-visual canvas {
-        width: 100%;
-        height: 100%;
-      }
-
-      .player-controls {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        margin-bottom: 24px;
-      }
-
-      .play-btn {
-        width: 56px;
-        height: 56px;
-        border-radius: 50%;
-        border: none;
-        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dim) 100%);
-        color: var(--bg-deep);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: transform 0.15s, box-shadow 0.2s;
-        box-shadow: 0 4px 20px rgba(201, 166, 107, 0.3);
-        flex-shrink: 0;
-      }
-
-      .play-btn:hover {
-        transform: scale(1.05);
-        box-shadow: 0 6px 28px rgba(201, 166, 107, 0.4);
-      }
-
-      .hidden { display: none; }
-
-      .progress-track {
-        flex: 1;
-        height: 6px;
-        background: var(--border-subtle);
-        border-radius: 3px;
-        overflow: hidden;
-        cursor: pointer;
-      }
-
-      .progress-fill {
-        width: 0%;
-        height: 100%;
-        background: var(--accent);
-        transition: width 0.1s linear;
-      }
-
-      .time-display {
-        font-family: var(--font-mono);
-        font-size: 0.85rem;
-        color: var(--text-muted);
-        min-width: 60px;
-      }
-
-      .layer-mixer {
-        padding-top: 20px;
-        border-top: 1px solid var(--border-subtle);
-        display: grid;
-        gap: 14px;
-      }
-
-      .mixer-row {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-      }
-
-      .mixer-label {
-        width: 60px;
-        font-size: 0.8rem;
-        color: var(--text-muted);
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-      }
-
-      .mixer-slider {
-        flex: 1;
-        height: 4px;
-        appearance: none;
-        background: var(--border-subtle);
-        border-radius: 2px;
-        cursor: pointer;
-      }
-
-      .mixer-slider::-webkit-slider-thumb {
-        appearance: none;
-        width: 14px;
-        height: 14px;
-        border-radius: 50%;
-        background: var(--accent);
-        cursor: pointer;
-      }
-
-      .nearby-section {
-        margin-top: 40px;
-        padding-top: 28px;
-        border-top: 1px solid var(--border-subtle);
-      }
-
-      .nearby-years {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-      }
-
-      .year-link {
-        padding: 10px 18px;
-        border: 1px solid var(--border-subtle);
-        border-radius: 999px;
-        background: transparent;
-        color: var(--text-dim);
-        font-size: 0.9rem;
-        text-decoration: none;
-        transition: all 0.2s;
-      }
-
-      .year-link:hover {
-        background: rgba(201, 166, 107, 0.08);
-        border-color: var(--accent-dim);
-        color: var(--accent);
-      }
-
-      .actions-row {
-        display: flex;
-        gap: 12px;
-        margin-top: 32px;
-        flex-wrap: wrap;
-        justify-content: center;
-      }
-
-      .btn {
-        padding: 12px 24px;
-        border: 1px solid var(--border-medium);
-        border-radius: 999px;
-        background: transparent;
-        color: var(--text-dim);
-        font: inherit;
-        font-size: 0.9rem;
-        cursor: pointer;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        transition: all 0.2s;
-      }
-
-      .btn:hover {
-        background: rgba(201, 166, 107, 0.08);
-        border-color: var(--accent-dim);
-        color: var(--accent);
-      }
-
-      .btn-primary {
-        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dim) 100%);
-        border: none;
-        color: var(--bg-deep);
-        font-weight: 600;
-      }
-
-      .btn-primary:hover {
-        background: linear-gradient(135deg, #d4b07a 0%, var(--accent) 100%);
-        box-shadow: 0 4px 20px rgba(201, 166, 107, 0.3);
-      }
-
-      .error-callout {
-        margin-top: 24px;
-        padding: 16px 20px;
-        border: 1px solid rgba(154, 107, 92, 0.3);
-        border-radius: 14px;
-        background: rgba(154, 107, 92, 0.08);
-        color: var(--text-dim);
-        font-size: 0.9rem;
-      }
-
-      .scene-summary {
-        margin-top: 16px;
-        padding: 16px 20px;
-        border: 1px solid var(--border-subtle);
-        border-radius: 14px;
-        background: rgba(201, 166, 107, 0.04);
-        font-size: 1rem;
-        color: var(--text-dim);
-        font-style: italic;
-        line-height: 1.6;
-      }
-
-      @media (max-width: 640px) {
-        .mode-selector {
-          flex-direction: column;
-        }
-
-        .player-controls {
-          flex-wrap: wrap;
-        }
-
-        .progress-track {
-          order: 3;
-          width: 100%;
-          flex: none;
-        }
-
-        .mixer-row {
-          flex-direction: column;
-          align-items: stretch;
-          gap: 8px;
-        }
-
-        .mixer-label {
-          width: auto;
-        }
-      }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Séance - Vox Aeterna</title>
+    ${sharedHead()}
   </head>
-  <body>
-    <main>
-      <div class="shell">
-        <header class="artifact-header">
-          <span class="artifact-badge ${archived ? 'archived' : ''}">${escapeHtml(headerText)}</span>
-          <h1 class="artifact-title">${escapeHtml(place)}</h1>
-          <span class="artifact-year">${escapeHtml(year)}</span>
-          <p class="artifact-subtitle">Reconstructed from archival descriptions</p>
-          <span class="confidence-badge">${escapeHtml(confidenceLabel)}</span>
-          ${sceneSummary ? `<p class="scene-summary">${escapeHtml(sceneSummary.slice(0, 200))}</p>` : ""}
-          ${reinterpretNote}
-          ${sourceNote}
-          ${partialNote}
-        </header>
-
-        ${audioSection}
-
-        ${errorMessage}
-
-        ${evidenceSection}
-
-        ${nearbySection}
-
-        <div class="actions-row">
-          <a class="btn btn-primary" href="/ritual?place=${encodeURIComponent(place)}&year=${encodeURIComponent(year)}">
-            <span>Hear again</span>
-          </a>
-          <a class="btn" href="/">
-            <span>New reconstruction</span>
-          </a>
+  <body class="bg-[#050505] text-on-background font-body selection:bg-tertiary/30 min-h-screen overflow-x-hidden relative">
+    
+    <!-- Fog and Grain Layers -->
+    <div class="fixed inset-0 grain-overlay z-10 pointer-events-none"></div>
+    <div class="fixed inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#0a0a0a] via-[#050505] to-black z-0 pointer-events-none"></div>
+    
+    <!-- Navigation -->
+    <header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-10 py-8 mix-blend-difference">
+        <div class="flex items-center gap-4">
+            <a href="/" class="text-white/60 hover:text-white transition-all duration-700 ease-in-out font-label text-xs uppercase tracking-[0.3em] truncate">
+                Sever Connection
+            </a>
         </div>
-      </div>
+    </header>
+
+    ${errorMessage}
+
+    <main class="relative z-20 pt-24 pb-24 px-6 md:px-12 lg:px-24 max-w-7xl mx-auto flex flex-col min-h-[90vh] justify-center">
+        
+        <!-- Header Information -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-8 mb-16 md:mb-24">
+            <div class="md:col-span-8 flex flex-col justify-end">
+                <p class="font-label uppercase text-[10px] tracking-[0.4em] text-on-surface-variant/60 mb-6">${escapeHtml(headerText)}</p>
+                <h1 class="font-headline italic text-4xl sm:text-5xl md:text-7xl lg:text-8xl text-primary tracking-tight leading-none mb-4 break-words">
+                    ${escapeHtml(place)}
+                </h1>
+                <div class="flex items-center gap-4 sm:gap-6 flex-wrap">
+                    <span class="font-h1 text-2xl sm:text-3xl text-on-surface-variant/50">${escapeHtml(year)}</span>
+                    <div class="h-px w-12 sm:w-24 bg-white/10 hidden sm:block"></div>
+                    <span class="font-label text-[10px] uppercase tracking-widest text-accent/70">${escapeHtml(confidenceLabel)}</span>
+                </div>
+            </div>
+            
+            <div class="md:col-span-4 flex flex-col justify-end">
+                <p class="font-body text-sm text-on-surface-variant/70 leading-relaxed sm:text-right">
+                    ${reinterpretation?.reinterpreted ? `<em>Notice:</em> ${escapeHtml(reinterpretation.note)}` : sourceNotes ? escapeHtml(sourceNotes) : "Audio projection constructed from fragmentary archival evidence."}
+                    ${partial ? "<br/><span class='text-accent mt-2 block'>Partial reconstruction active.</span>" : ""}
+                </p>
+            </div>
+        </div>
+
+        ${hasAudio ? `
+        <!-- The Mixing Conduit (Vox Aeterna Player) -->
+        <div class="mb-24 md:mb-32">
+            <!-- Master Control -->
+            <div class="flex justify-center mb-12 md:mb-16 relative">
+                <!-- Decorative rings -->
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div id="play-pulse-ring" class="w-20 h-20 md:w-24 md:h-24 rounded-full border border-white/5 scale-100 opacity-50 transition-all duration-1000"></div>
+                </div>
+                
+                <button id="main-play-btn" class="group relative w-20 h-20 md:w-24 md:h-24 rounded-full shard-blur border border-white/10 flex items-center justify-center hover:bg-white/5 hover:border-white/20 transition-all duration-700 ease-out z-10 hover:scale-105 active:scale-95">
+                    <span class="play-icon material-symbols-outlined text-3xl md:text-4xl text-white font-light group-hover:text-cyan-400 transition-colors">play_arrow</span>
+                    <span class="pause-icon material-symbols-outlined text-3xl md:text-4xl text-white font-light group-hover:text-cyan-400 transition-colors hidden">pause</span>
+                </button>
+            </div>
+            
+            <!-- Progress Line -->
+            <div class="w-full max-w-4xl mx-auto mb-12 md:mb-16 group cursor-pointer" id="progress-container">
+                <div class="flex justify-between items-end mb-4 px-2">
+                    <span class="font-mono text-xs text-on-surface-variant/50" id="time-display">00:00</span>
+                    <span class="font-label text-[9px] uppercase tracking-[0.3em] text-on-surface-variant/30 hidden sm:block">Timeline</span>
+                    <span class="font-mono text-xs text-on-surface-variant/50" id="duration-display">--:--</span>
+                </div>
+                <div class="h-1 w-full bg-white/5 rounded-full overflow-hidden relative">
+                    <div id="main-progress" class="absolute top-0 left-0 h-full w-0 bg-gradient-to-r from-transparent via-cyan-900 to-cyan-400 transition-all duration-100 ease-linear"></div>
+                </div>
+                <div class="mt-4 h-8 w-full opacity-20 group-hover:opacity-60 transition-opacity duration-500 overflow-hidden rounded">
+                    <!-- Simple waveform replacement -->
+                    <canvas id="wave-canvas" class="w-full h-full"></canvas>
+                </div>
+            </div>
+
+            <!-- Light Rills (Sliders) -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 w-full max-w-4xl mx-auto px-4">
+                
+                <!-- Rill: Bed -->
+                <div class="flex flex-col gap-4 md:gap-6 group">
+                    <div class="flex justify-between items-center">
+                        <label class="font-headline italic text-lg md:text-xl text-on-surface group-hover:text-primary transition-colors cursor-pointer">Atmosphere</label>
+                        <span class="font-mono text-xs text-on-surface-variant/50" id="bed-val">80%</span>
+                    </div>
+                    <div class="relative h-12 flex items-center">
+                        <input type="range" id="bed-slider" min="0" max="100" value="80" class="absolute w-full h-full opacity-0 cursor-pointer z-20">
+                        <div class="w-full h-[1px] bg-white/10 relative z-10 group-hover:bg-white/20 transition-colors">
+                            <div id="bed-fill" class="absolute top-1/2 -translate-y-1/2 left-0 h-[2px] bg-indigo-400 w-[80%] shadow-[0_0_15px_rgba(129,140,248,0.5)] transition-all duration-75"></div>
+                            <div id="bed-thumb" class="absolute top-1/2 -translate-y-1/2 w-1.5 h-6 bg-white left-[80%] -translate-x-1/2 rounded-full shadow-[0_0_10px_rgba(255,255,255,0.8)] transition-all duration-75 group-hover:scale-y-125 group-active:scale-y-150"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rill: Event -->
+                <div class="flex flex-col gap-4 md:gap-6 group">
+                    <div class="flex justify-between items-center">
+                        <label class="font-headline italic text-lg md:text-xl text-on-surface group-hover:text-primary transition-colors cursor-pointer">Events</label>
+                        <span class="font-mono text-xs text-on-surface-variant/50" id="event-val">70%</span>
+                    </div>
+                    <div class="relative h-12 flex items-center">
+                        <input type="range" id="event-slider" min="0" max="100" value="70" class="absolute w-full h-full opacity-0 cursor-pointer z-20">
+                        <div class="w-full h-[1px] bg-white/10 relative z-10 group-hover:bg-white/20 transition-colors">
+                            <div id="event-fill" class="absolute top-1/2 -translate-y-1/2 left-0 h-[2px] bg-cyan-400 w-[70%] shadow-[0_0_15px_rgba(34,211,238,0.5)] transition-all duration-75"></div>
+                            <div id="event-thumb" class="absolute top-1/2 -translate-y-1/2 w-1.5 h-6 bg-white left-[70%] -translate-x-1/2 rounded-full shadow-[0_0_10px_rgba(255,255,255,0.8)] transition-all duration-75 group-hover:scale-y-125 group-active:scale-y-150"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rill: Texture -->
+                <div class="flex flex-col gap-4 md:gap-6 group">
+                    <div class="flex justify-between items-center">
+                        <label class="font-headline italic text-lg md:text-xl text-on-surface group-hover:text-primary transition-colors cursor-pointer">Texture</label>
+                        <span class="font-mono text-xs text-on-surface-variant/50" id="texture-val">60%</span>
+                    </div>
+                    <div class="relative h-12 flex items-center">
+                        <input type="range" id="texture-slider" min="0" max="100" value="60" class="absolute w-full h-full opacity-0 cursor-pointer z-20">
+                        <div class="w-full h-[1px] bg-white/10 relative z-10 group-hover:bg-white/20 transition-colors">
+                            <div id="texture-fill" class="absolute top-1/2 -translate-y-1/2 left-0 h-[2px] bg-zinc-300 w-[60%] shadow-[0_0_15px_rgba(212,212,216,0.3)] transition-all duration-75"></div>
+                            <div id="texture-thumb" class="absolute top-1/2 -translate-y-1/2 w-1.5 h-6 bg-white left-[60%] -translate-x-1/2 rounded-full shadow-[0_0_10px_rgba(255,255,255,0.8)] transition-all duration-75 group-hover:scale-y-125 group-active:scale-y-150"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        ` : `
+        <div class="mb-32 flex flex-col items-center justify-center opacity-30">
+            <div class="w-24 h-24 rounded-full border border-white/10 border-dashed flex items-center justify-center mb-6">
+                <span class="material-symbols-outlined text-4xl font-light">mic_off</span>
+            </div>
+            <p class="font-label uppercase tracking-widest text-xs text-center">Acoustic Shadow<br/><span class="text-[9px] opacity-70 normal-case mt-2 block">No audio layers reconstructed</span></p>
+        </div>
+        `}
+
+        <!-- Floating Evidence Shards -->
+        ${hasEvidence ? `
+        <div class="mt-auto">
+            <div class="flex items-center gap-4 sm:gap-6 mb-8 sm:mb-12">
+                <div class="h-px w-8 sm:w-12 bg-white/10"></div>
+                <h2 class="font-label uppercase text-[9px] sm:text-[10px] tracking-[0.4em] text-on-surface-variant/40">Fragments of Origin</h2>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                ${formatEvidence(evidence)}
+            </div>
+            ${evidenceNote ? `<p class="mt-6 sm:mt-8 font-body text-xs sm:text-sm text-on-surface-variant/50 max-w-2xl italic">${escapeHtml(evidenceNote)}</p>` : ""}
+        </div>
+        ` : ""}
     </main>
     ${hasAudio ? `
     <script>
@@ -678,8 +223,11 @@ export function renderArtifact({ place, year, archived = false, confidence = "hi
         var playBtn = document.getElementById('main-play-btn');
         var playIcon = document.querySelector('.play-icon');
         var pauseIcon = document.querySelector('.pause-icon');
-        var progress = document.getElementById('main-progress');
+        var pulseRing = document.getElementById('play-pulse-ring');
+        var progressContainer = document.getElementById('progress-container');
+        var progressLine = document.getElementById('main-progress');
         var timeDisplay = document.getElementById('time-display');
+        var durationDisplay = document.getElementById('duration-display');
         var canvas = document.getElementById('wave-canvas');
         var ctx = canvas ? canvas.getContext('2d') : null;
 
@@ -712,40 +260,85 @@ export function renderArtifact({ place, year, archived = false, confidence = "hi
           gainNodes.texture.gain.value = t * 0.6;
         }
 
-        bedSlider.addEventListener('input', updateGains);
-        eventSlider.addEventListener('input', updateGains);
-        textureSlider.addEventListener('input', updateGains);
+        function bindSliderUI(id) {
+            var slider = document.getElementById(id + '-slider');
+            if(!slider) return;
+            var fill = document.getElementById(id + '-fill');
+            var thumb = document.getElementById(id + '-thumb');
+            var valDisplay = document.getElementById(id + '-val');
+
+            slider.addEventListener('input', function() {
+                var val = this.value;
+                if(fill) fill.style.width = val + '%';
+                if(thumb) thumb.style.left = val + '%';
+                if(valDisplay) valDisplay.textContent = val + '%';
+                updateGains();
+            });
+        }
+
+        bindSliderUI('bed');
+        bindSliderUI('event');
+        bindSliderUI('texture');
+
+        var buffers = { bed: null, event: null, texture: null };
+        var sourceNodes = { bed: null, event: null, texture: null };
+        var mainDuration = 0;
+
+        async function fetchLayer(url) {
+          if (!url) return null;
+          try {
+            if (url.startsWith('mock_')) {
+              var data = generateWhiteNoise(44100 * 10);
+              return await audioCtx.decodeAudioData(data.buffer);
+            }
+            if (url.startsWith('http')) {
+              var response = await fetch('/audio-proxy?url=' + encodeURIComponent(url));
+              if (!response.ok) return null;
+              return await audioCtx.decodeAudioData(await response.arrayBuffer());
+            }
+            var binaryString = atob(url);
+            var data = new Uint8Array(binaryString.length);
+            for (var i = 0; i < binaryString.length; i++) data[i] = binaryString.charCodeAt(i);
+            return await audioCtx.decodeAudioData(data.buffer);
+          } catch(e) {
+            console.warn('Failed to load layer', e);
+            return null;
+          }
+        }
 
         async function loadAudio() {
-          if (audioBuffer) return;
-          try {
-            var base64Data = ${JSON.stringify(audioLayers || {})};
-            var audioData = null;
-            
-            // Check if it's a URL (R2 or external)
-            if (base64Data.bed && (base64Data.bed.startsWith('http://') || base64Data.bed.startsWith('https://'))) {
-              console.log('Loading audio from URL:', base64Data.bed);
-              var response = await fetch(base64Data.bed);
-              if (!response.ok) throw new Error('Failed to fetch audio');
-              var arrayBuffer = await response.arrayBuffer();
-              audioData = new Uint8Array(arrayBuffer);
-            } else if (base64Data.bed && base64Data.bed.startsWith('mock_')) {
-              // Mock audio - generate white noise for demo
-              console.log('Using mock audio (no real audio generated)');
-              audioData = generateWhiteNoise(44100 * 10); // 10 seconds of noise
-            } else if (base64Data.bed) {
-              // Legacy base64 encoded audio
-              var binaryString = atob(base64Data.bed);
-              audioData = new Uint8Array(binaryString.length);
-              for (var i = 0; i < binaryString.length; i++) audioData[i] = binaryString.charCodeAt(i);
-            }
-            
-            if (audioData) {
-              audioBuffer = await audioCtx.decodeAudioData(audioData.buffer);
-            }
-          } catch (e) {
-            console.log('Audio load error:', e.message);
+          if (buffers.bed) return; // already loaded
+          
+          var base64Data = ${JSON.stringify(audioLayers || {})};
+          playBtn.style.opacity = '0.5';
+          playBtn.style.pointerEvents = 'none';
+          if(playIcon) playIcon.innerText = "hourglass_empty";
+          
+          var eventUrl = base64Data.events && base64Data.events.length > 0 ? base64Data.events[0].audioUrl : base64Data.human;
+          
+          const [bedBuf, texBuf, evtBuf] = await Promise.all([
+            fetchLayer(base64Data.bed),
+            fetchLayer(base64Data.texture),
+            fetchLayer(eventUrl)
+          ]);
+          
+          buffers.bed = bedBuf;
+          buffers.texture = texBuf;
+          buffers.event = evtBuf;
+          
+          if (buffers.bed) mainDuration = buffers.bed.duration;
+          else if (buffers.texture) mainDuration = buffers.texture.duration;
+          else if (buffers.event) mainDuration = buffers.event.duration;
+          
+          if (mainDuration && durationDisplay) {
+              var mins = Math.floor(mainDuration / 60);
+              var secs = Math.floor(mainDuration % 60);
+              durationDisplay.textContent = '0' + mins + ':' + String(secs).padStart(2, '0');
           }
+
+          playBtn.style.opacity = '1';
+          playBtn.style.pointerEvents = 'auto';
+          if(playIcon) playIcon.innerText = "play_arrow";
         }
         
         function generateWhiteNoise(sampleRate, durationSeconds) {
@@ -758,83 +351,108 @@ export function renderArtifact({ place, year, archived = false, confidence = "hi
         }
 
         function drawWave() {
-          if (!ctx || !audioBuffer) return;
-          var width = canvas.width;
-          var height = canvas.height;
-          var data = audioBuffer.getChannelData(0);
+          if (!ctx || !buffers.bed) return;
+          var width = canvas.width = canvas.offsetWidth;
+          var height = canvas.height = canvas.offsetHeight;
+          var data = buffers.bed.getChannelData(0);
           var step = Math.ceil(data.length / width);
           var amp = height / 2;
           
-          ctx.fillStyle = 'rgba(13, 10, 6, 0.3)';
-          ctx.fillRect(0, 0, width, height);
-          
+          ctx.clearRect(0, 0, width, height);
           ctx.beginPath();
           ctx.moveTo(0, amp);
           
           for (var i = 0; i < width; i++) {
             var min = 1.0;
             var max = -1.0;
-            for (var j = 0; j < step; j++) {
+            for (var j = 0; j < Math.min(step, data.length - (i * step)); j++) {
               var datum = data[(i * step) + j];
               if (datum < min) min = datum;
               if (datum > max) max = datum;
             }
-            ctx.lineTo(i, (1 + min) * amp);
-            ctx.lineTo(i, (1 + max) * amp);
+            if(isFinite(min) && isFinite(max)) {
+                ctx.lineTo(i, (1 + min) * amp * 0.8);
+                ctx.lineTo(i, (1 + max) * amp * 0.8);
+            }
           }
           
-          ctx.strokeStyle = '#c9a66b';
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
           ctx.lineWidth = 1;
           ctx.stroke();
         }
 
         function updateTime() {
-          if (!isPlaying || !audioBuffer) return;
-          var elapsed = (pauseTime + audioCtx.currentTime - startTime) % audioBuffer.duration;
-          var pct = (elapsed / audioBuffer.duration) * 100;
-          progress.style.width = pct + '%';
+          if (!isPlaying || !mainDuration) return;
+          var elapsed = (pauseTime + audioCtx.currentTime - startTime) % mainDuration;
+          var pct = (elapsed / mainDuration) * 100;
+          if(progressLine) progressLine.style.width = pct + '%';
           
           var curr = Math.floor(elapsed);
           var mins = Math.floor(curr / 60);
           var secs = curr % 60;
-          timeDisplay.textContent = mins + ':' + String(secs).padStart(2, '0');
+          if(timeDisplay) timeDisplay.textContent = '0' + mins + ':' + String(secs).padStart(2, '0');
           
-          drawWave();
+          if (pulseRing) {
+              pulseRing.style.transform = 'scale(' + (1 + (Math.sin(elapsed * 2) * 0.1)) + ')';
+              pulseRing.style.opacity = parseFloat(0.2 + (Math.sin(elapsed * 4) * 0.1));
+          }
+
           animationId = requestAnimationFrame(updateTime);
+        }
+
+        function stopSources() {
+          ['bed', 'event', 'texture'].forEach(function(layer) {
+            if (sourceNodes[layer]) {
+              try { sourceNodes[layer].stop(); } catch(e) {}
+              sourceNodes[layer] = null;
+            }
+          });
+        }
+        
+        function startSources(offset) {
+          ['bed', 'event', 'texture'].forEach(function(layer) {
+            if (buffers[layer]) {
+              var src = audioCtx.createBufferSource();
+              src.buffer = buffers[layer];
+              src.connect(gainNodes[layer]);
+              if (layer === 'bed') {
+                src.onended = function() {
+                  if (isPlaying) {
+                     stopSources();
+                     pauseTime = 0;
+                     startSources(0);
+                     startTime = audioCtx.currentTime;
+                  }
+                };
+              }
+              src.start(0, offset);
+              sourceNodes[layer] = src;
+            }
+          });
+          drawWave();
         }
 
         playBtn.addEventListener('click', async function() {
           initAudio();
+          if (audioCtx.state === 'suspended') {
+              await audioCtx.resume();
+          }
           await loadAudio();
-          if (!audioBuffer) return;
+          if (!buffers.bed && !buffers.texture && !buffers.event) return;
 
           if (isPlaying) {
-            sourceNode.stop();
+            stopSources();
             pauseTime += audioCtx.currentTime - startTime;
             isPlaying = false;
             playIcon.classList.remove('hidden');
             pauseIcon.classList.add('hidden');
-            sourceNode = null;
+            if(pulseRing) {
+                pulseRing.style.transform = 'scale(1)';
+                pulseRing.style.opacity = '0.5';
+            }
             cancelAnimationFrame(animationId);
           } else {
-            sourceNode = audioCtx.createBufferSource();
-            sourceNode.buffer = audioBuffer;
-            sourceNode.connect(gainNodes.bed);
-            sourceNode.connect(gainNodes.event);
-            sourceNode.connect(gainNodes.texture);
-            
-            sourceNode.onended = function() {
-              if (isPlaying) {
-                isPlaying = false;
-                playIcon.classList.remove('hidden');
-                pauseIcon.classList.add('hidden');
-                pauseTime = 0;
-                progress.style.width = '0%';
-                timeDisplay.textContent = '0:00';
-              }
-            };
-            
-            sourceNode.start(0, pauseTime);
+            startSources(pauseTime);
             startTime = audioCtx.currentTime;
             isPlaying = true;
             playIcon.classList.add('hidden');
@@ -843,48 +461,27 @@ export function renderArtifact({ place, year, archived = false, confidence = "hi
           }
         });
 
-        document.querySelector('.progress-track').addEventListener('click', function(e) {
-          if (!audioBuffer) return;
-          var rect = e.target.getBoundingClientRect();
-          var pct = (e.clientX - rect.left) / rect.width;
-          var seekTime = pct * audioBuffer.duration;
-          if (isPlaying) {
-            sourceNode.stop();
-            pauseTime = seekTime;
-            sourceNode = audioCtx.createBufferSource();
-            sourceNode.buffer = audioBuffer;
-            sourceNode.connect(gainNodes.bed);
-            sourceNode.connect(gainNodes.event);
-            sourceNode.connect(gainNodes.texture);
-            sourceNode.start(0, pauseTime);
-            startTime = audioCtx.currentTime;
-          } else {
-            pauseTime = seekTime;
-          }
-        });
+        if(progressContainer) {
+            progressContainer.addEventListener('click', function(e) {
+              if (!mainDuration) return;
+              var rect = this.getBoundingClientRect();
+              var pct = (e.clientX - rect.left) / rect.width;
+              var seekTime = pct * mainDuration;
+              if (isPlaying) {
+                stopSources();
+                pauseTime = seekTime;
+                startSources(pauseTime);
+                startTime = audioCtx.currentTime;
+              } else {
+                pauseTime = seekTime;
+                progressLine.style.width = (pct * 100) + '%';
+              }
+            });
+        }
+        
+        window.addEventListener('resize', function(){ if(isPlaying) drawWave(); });
 
-        var modeBtns = document.querySelectorAll('.mode-btn');
-        modeBtns.forEach(function(btn) {
-          btn.addEventListener('click', function() {
-            modeBtns.forEach(function(b) { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
-            btn.classList.add('active');
-            btn.setAttribute('aria-selected', 'true');
-            
-            var mode = btn.dataset.mode;
-            if (mode === 'atmosphere') {
-              bedSlider.value = 90; eventSlider.value = 30; textureSlider.value = 80;
-            } else if (mode === 'streetlife') {
-              bedSlider.value = 50; eventSlider.value = 90; textureSlider.value = 40;
-            } else if (mode === 'machines') {
-              bedSlider.value = 80; eventSlider.value = 20; textureSlider.value = 30;
-            } else if (mode === 'voices') {
-              bedSlider.value = 40; eventSlider.value = 80; textureSlider.value = 60;
-            } else {
-              bedSlider.value = 80; eventSlider.value = 70; textureSlider.value = 60;
-            }
-            updateGains();
-          });
-        });
+
       })();
     </script>
     ` : ""}

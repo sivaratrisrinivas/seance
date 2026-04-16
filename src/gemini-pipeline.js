@@ -10,10 +10,12 @@
  * - Graceful fallback when Gemini is unavailable
  */
 
-import { isConfigured as geminiIsConfigured } from "./gemini-client.js";
-
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
+
+export function isConfigured() {
+  return !!GOOGLE_API_KEY;
+}
 const BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
 // ─── Cache ──────────────────────────────────────────────────────────────
@@ -51,22 +53,22 @@ function setCachedResult(place, year, data) {
 
 // ─── Mega-prompt ────────────────────────────────────────────────────────
 
-const MEGA_SYSTEM_PROMPT = `You are a historical soundscape architect for an app called Séance that reconstructs place-sounds from history.
+const MEGA_SYSTEM_PROMPT = `You are a cinematic sound designer and field recordist for an app called Séance that reconstructs historical place-sounds with hyper-realistic acoustic fidelity.
 
 Your SINGLE task: given a place and year, produce a COMPLETE soundscape specification in ONE JSON response.
 
-This JSON will be used DIRECTLY by a text-to-sound-effects API. Be concrete, audible, and specific.
+This JSON will be fed DIRECTLY into a state-of-the-art text-to-sound-effects (TTS) pipeline. Your output must sound like a professional, high-fidelity field recording.
 
 Rules:
-- Prefer concrete sensory details over general historical facts
-- Distinguish grounded evidence from inference
-- Do not invent major details unsupported by evidence
-- If evidence is weak, say so explicitly
-- Make all prompts suitable for a text-to-sound-effects API (not literary prose)
-- Separate constant background from environmental texture, human activity, and intermittent events
-- Keep prompts concrete, short, and mixable
-- Include negative constraints: no modern electronic sounds, not a film score, not generic stock ambience
-- Return valid JSON only, no markdown fencing
+- Adopt the vocabulary of acoustic engineering and Foley design: describe reverberation, distance (e.g. 'close-mic', 'mid-ground', 'distant'), stereo width, granular textures, and materials.
+- Prefer concrete acoustic properties (e.g., 'muffled low-frequency rumble', 'sharp transient crack', 'binaural wind flutter') over narrative storytelling.
+- Distinguish grounded evidence from inference, but express both via sonic textures.
+- Do not invent major historical events unsupported by evidence, but DO invent the associated micro-acoustic details (rustling cloth, creaking wood, distant walla).
+- Make all prompts suitable for a TTS audio model (NO literary prose, NO musical notes).
+- Separate constant background from environmental texture, human activity, and intermittent events.
+- Keep prompts concrete, highly descriptive acoustically, and short.
+- Include strong negative constraints: no modern electronic sounds, no synthetic oscillators, no musical instruments, no narration, no cinematic score.
+- Return valid JSON only, no markdown fencing.
 
 Return JSON matching EXACTLY this schema:
 
@@ -101,24 +103,24 @@ Return JSON matching EXACTLY this schema:
   "soundscape_plan": {
     "summary": "string",
     "bed": {
-      "prompt": "string — concrete sound description for audio generation API",
+      "prompt": "string — concrete Foley/field-recording description for audio API",
       "duration_seconds": 20,
       "loop": true
     },
     "texture": {
-      "prompt": "string",
+      "prompt": "string — concrete Foley/field-recording description",
       "duration_seconds": 20,
       "loop": true
     },
     "human": {
-      "prompt": "string",
+      "prompt": "string — indistinct walla and crowd acoustics",
       "duration_seconds": 15,
       "loop": true
     },
     "events": [
       {
         "name": "string",
-        "prompt": "string",
+        "prompt": "string — sharp transient foley element",
         "duration_seconds": 3,
         "loop": false,
         "weight": 0.0
@@ -316,7 +318,7 @@ export async function runGeminiPipeline({ place, year, localEvidence = [] }) {
     return cached;
   }
 
-  if (!geminiIsConfigured()) {
+  if (!isConfigured()) {
     console.log("[gemini-pipeline] Gemini not configured, skipping");
     return null;
   }

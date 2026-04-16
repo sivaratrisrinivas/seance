@@ -16,68 +16,26 @@ import { coerceSoundscapePlan } from "./plan-soundscape.js";
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const ELEVENLABS_BASE_URL = "https://api.elevenlabs.io/v1/sound-generation";
 
-const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
-const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || "seance-audio";
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL;
+import { uploadToR2 } from "./r2.js";
 
-const USE_EXTERNAL_STORAGE = !!(R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY && R2_PUBLIC_URL);
-
-let _s3Client = null;
-
-async function getS3Client() {
-  if (_s3Client) return _s3Client;
-
-  const { S3Client } = await import("@aws-sdk/client-s3");
-  _s3Client = new S3Client({
-    region: "auto",
-    endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-    credentials: {
-      accessKeyId: R2_ACCESS_KEY_ID,
-      secretAccessKey: R2_SECRET_ACCESS_KEY,
-    },
-  });
-  return _s3Client;
-}
-
-async function uploadToR2(audioData, key) {
-  if (!USE_EXTERNAL_STORAGE) {
-    return null;
-  }
-
-  const { PutObjectCommand } = await import("@aws-sdk/client-s3");
-  const s3 = await getS3Client();
-  const body = Buffer.from(audioData, "base64");
-
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: R2_BUCKET_NAME,
-      Key: key,
-      Body: body,
-      ContentType: "audio/mpeg",
-    })
-  );
-
-  return `${R2_PUBLIC_URL}/${key}`;
-}
+const USE_EXTERNAL_STORAGE = !!(process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY);
 
 // ─── Prompt enhancers ───────────────────────────────────────────────────
 
 function buildBedPrompt(planPrompt, place, year) {
-  return `${planPrompt}. ${place} ${year}. Natural environmental ambience. No narration. No music foreground. Seamless ambient loop.`;
+  return `${planPrompt}. ${place} ${year}. High-fidelity field recording, wide stereo immersive ambient loop, cinematic sound design. No speech, no narration, no music, no rhythm. Seamless ambient loop.`;
 }
 
 function buildTexturePrompt(planPrompt, place, year) {
-  return `${planPrompt}. ${place} ${year}. Natural environmental ambience. No narration. No music foreground. Seamless ambient loop.`;
+  return `${planPrompt}. ${place} ${year}. Detailed mid-ground foley, environmental texture, close-mic. No voices, no narration, no music. Seamless ambient loop.`;
 }
 
 function buildHumanPrompt(planPrompt, place, year) {
-  return `${planPrompt}. Mid-distance perspective. Natural crowd dynamics. No isolated featured speaker. Seamless loop.`;
+  return `${planPrompt}. Indistinct background walla. Distant crowd dynamics, natural acoustic space. No single featured voice, no clear speech, no narration. Seamless loop.`;
 }
 
 function buildEventPrompt(planPrompt) {
-  return `${planPrompt}. Single short event. Clean onset and fade. No music.`;
+  return `${planPrompt}. Isolated foley sound effect, sharp transient, clean decay. No music.`;
 }
 
 export { buildBedPrompt, buildTexturePrompt, buildHumanPrompt, buildEventPrompt };
@@ -115,17 +73,18 @@ export async function generateAudioLayer({ text, layerType, durationSeconds = 10
   }
 
   const arrayBuffer = await response.arrayBuffer();
-  const base64Audio = Buffer.from(arrayBuffer).toString("base64");
+  const buffer = Buffer.from(arrayBuffer);
+  const base64Audio = buffer.toString("base64");
 
   if (USE_EXTERNAL_STORAGE) {
     const timestamp = Date.now();
     const sanitizedPlace = (place || "unknown").replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
-    const key = `${sanitizedPlace}_${year}/${layerType}_${timestamp}.mp3`;
+    const key = `audio/${sanitizedPlace}-${year}/${layerType}-${timestamp}.mp3`;
 
     try {
-      const url = await uploadToR2(base64Audio, key);
+      const url = await uploadToR2(key, buffer, "audio/mpeg");
       if (url) {
-        console.log(`[generate-layers] Uploaded ${layerType} to ${url}`);
+        console.log(`[generate-layers] Uploaded ${layerType} → ${url}`);
         return url;
       }
     } catch (e) {

@@ -8,7 +8,7 @@
  * This module focuses on LOCAL normalization (hardcoded and fallback paths).
  */
 
-import { isConfigured as geminiIsConfigured } from "./gemini-client.js";
+import { isConfigured as geminiIsConfigured } from "./gemini-pipeline.js";
 
 // ─── Semantic keyword groups ────────────────────────────────────────────
 

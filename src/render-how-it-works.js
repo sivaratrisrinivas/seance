@@ -1,5 +1,5 @@
 import { escapeHtml } from "./html.js";
-import { sharedStyles } from "./shared-styles.js";
+import { sharedHead } from "./shared-styles.js";
 
 export function renderHowItWorks() {
   return `<!doctype html>
@@ -12,7 +12,7 @@ export function renderHowItWorks() {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
     <style>
-      ${sharedStyles()}
+      ${sharedHead()}
 
       .how-hero {
         text-align: center;

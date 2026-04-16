@@ -1,5 +1,5 @@
 import { escapeHtml } from "./html.js";
-import { sharedStyles } from "./shared-styles.js";
+import { sharedHead } from "./shared-styles.js";
 
 export function renderRitualLoading({ place, year }) {
   const queryLabel = [place, year].filter(Boolean).join(", ");
@@ -11,7 +11,7 @@ export function renderRitualLoading({ place, year }) {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Preparing your Seance</title>
     <style>
-${sharedStyles()}
+${sharedHead()}
 
       .headphones-hint {
         margin: 28px 0 0;

@@ -29,7 +29,7 @@ User Input → Validation → Consolidated Gemini Extraction → Prompt Building
 1. **Evidence extraction & planning** — Uses a consolidated "mega-pipeline" via Gemini to extract sensory evidence, normalize it, and build a soundscape plan all in a single API call (with in-memory caching and automatic retries).
 2. **Prompt building** — Converts the resulting plans into tightly constrained prompts (max 950 chars) that avoid modern sounds or dramatic scoring, adjusting the historical period based purely on the target year.
 3. **Parallel audio generation** — Simultaneously creates three audio layers (Bed, Texture, Human/Event) using ElevenLabs Sound Effects API via `Promise.allSettled` to minimize latency.
-4. **Storage** — Saves artifacts using case-insensitive keys to Turbopuffer, so identical queries load instantly instead of regenerating. Large audio blobs overflow to Cloudflare R2.
+4. **Storage** — Saves artifacts using case-insensitive keys to Turbopuffer, so identical queries load instantly instead of regenerating. Large audio blobs overflow to Cloudflare R2 (using dedicated `src/r2.js` uploader).
 5. **Playback** — Renders a mixable audio visualizer in the browser (Vanilla Web Audio API), along with clear trust indicators showing evidence confidence.
 
 ### Tech Stack
@@ -97,8 +97,8 @@ seance/
 │   ├── prompt-builder.js          # Plan → ElevenLabs prompts
 │   ├── generate-layers.js         # Parallel ElevenLabs API + R2 upload
 │   ├── gemini-pipeline.js         # Single consolidated Gemini mega-call
-│   ├── gemini-client.js           # Generic Gemini API client
 │   ├── turbopuffer-client.js      # Turbopuffer storage client
+│   ├── r2.js                      # Cloudflare R2 S3 uploader
 │   ├── generation-job.js          # Job state machine + single-flight
 │   ├── rate-limiter.js            # Sliding window rate limiter
 │   ├── place-aliases.js           # Unified place alias mapping
@@ -110,6 +110,7 @@ seance/
 │   ├── render-how-it-works.js     # How it works template
 │   ├── render-disambiguation.js   # Place disambiguation template
 │   ├── render-validation-error.js # Validation error template
+│   ├── render-ritual-loading.js   # Loading state template
 │   └── shared-styles.js           # Design system (dark theme)
 └── test/
     ├── homepage.test.js           # Homepage rendering (8 tests)
